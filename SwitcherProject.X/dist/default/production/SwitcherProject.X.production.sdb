@@ -1,0 +1,48 @@
+[p GLOBOPT AUTOSTATIC IEEE_DBL IEEE_FLT PIC14 PICREGULAR PICMID ]
+[d version 1.1 ]
+[d edition pro ]
+[d chip 12F675 ]
+[d frameptr 0 ]
+"10 C:\Program Files\Microchip\xc8\v2.32\pic\sources\c90\common\sprcadd.c
+[v ___fladd __fladd `(d  1 e 4 0 ]
+"4 C:\Program Files\Microchip\xc8\v2.32\pic\sources\c90\common\Umul8_16.c
+[v __Umul8_16 _Umul8_16 `(ui  1 e 2 0 ]
+"6 C:\Program Files\Microchip\xc8\v2.32\pic\sources\c90\pic\__eeprom.c
+[v ___eecpymem __eecpymem `(v  1 e 1 0 ]
+"39
+[v ___memcpyee __memcpyee `(v  1 e 1 0 ]
+"20 C:\Users\The_N\MPLABXProjects\SwitcherProject.X\newmain1.c
+[v _main main `(v  1 e 1 0 ]
+"219 C:/Program Files/Microchip/MPLABX/v5.50/packs/Microchip/PIC10-12Fxxx_DFP/1.4.56/xc8\pic\include\proc\pic12f675.h
+[v _GPIO GPIO `VEuc  1 e 1 @5 ]
+"565
+[v _CMCON CMCON `VEuc  1 e 1 @25 ]
+"644
+[v _ADCON0 ADCON0 `VEuc  1 e 1 @31 ]
+"1405
+[v _ANSEL ANSEL `VEuc  1 e 1 @159 ]
+"1586
+[v _GP0 GP0 `VEb  1 e 0 @40 ]
+"1589
+[v _GP1 GP1 `VEb  1 e 0 @41 ]
+"1598
+[v _GP4 GP4 `VEb  1 e 0 @44 ]
+"1601
+[v _GP5 GP5 `VEb  1 e 0 @45 ]
+"1748
+[v _TRISIO0 TRISIO0 `VEb  1 e 0 @1064 ]
+"1751
+[v _TRISIO1 TRISIO1 `VEb  1 e 0 @1065 ]
+"1754
+[v _TRISIO2 TRISIO2 `VEb  1 e 0 @1066 ]
+"1757
+[v _TRISIO3 TRISIO3 `VEb  1 e 0 @1067 ]
+"1760
+[v _TRISIO4 TRISIO4 `VEb  1 e 0 @1068 ]
+"1763
+[v _TRISIO5 TRISIO5 `VEb  1 e 0 @1069 ]
+"20 C:\Users\The_N\MPLABXProjects\SwitcherProject.X\newmain1.c
+[v _main main `(v  1 e 1 0 ]
+{
+"60
+} 0
