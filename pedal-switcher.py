@@ -46,6 +46,14 @@ def ActivatePedals():
         SwitchPedals(loop3)
     elif current == "4":
         SwitchPedals(loop4)
+    elif current == "5":
+        SwitchPedals(loop5)
+    elif current == "6":
+        SwitchPedals(loop6)
+    elif current == "7":
+        SwitchPedals(loop7)
+    elif current == "8":
+        SwitchPedals(loop8)
     print(activePedals)
 #end method
     
@@ -71,6 +79,14 @@ def SavePedals():
         savedPedals[2].saved_pins = CopyArr(savedPedals[2].saved_pins, activePedals)
     elif current == "4":
         savedPedals[3].saved_pins = CopyArr(savedPedals[3].saved_pins, activePedals)
+    elif current == "5":
+        savedPedals[4].saved_pins = CopyArr(savedPedals[4].saved_pins, activePedals)
+    elif current == "6":
+        savedPedals[5].saved_pins = CopyArr(savedPedals[5].saved_pins, activePedals)
+    elif current == "7":
+        savedPedals[6].saved_pins = CopyArr(savedPedals[6].saved_pins, activePedals)
+    elif current == "8":
+        savedPedals[7].saved_pins = CopyArr(savedPedals[7].saved_pins, activePedals)
     #save each pedal to its respective file
     for pedal in savedPedals:
         filename = "loop" + str(pedal.switch) + ".pkl"
@@ -113,7 +129,14 @@ def ActivatePedalsPMode():
         activePedals = CopyArr(activePedals, savedPedals[2].saved_pins)
     elif current == "4":
         activePedals = CopyArr(activePedals, savedPedals[3].saved_pins)
-    
+    elif current == "5":
+        activePedals = CopyArr(activePedals, savedPedals[4].saved_pins)
+    elif current == "6":
+        activePedals = CopyArr(activePedals, savedPedals[5].saved_pins)
+    elif current == "7":
+        activePedals = CopyArr(activePedals, savedPedals[6].saved_pins)
+    elif current == "8":
+        activePedals = CopyArr(activePedals, savedPedals[7].saved_pins)
     #turn on current pedals
     for pedal in activePedals:
         GPIO.output(pedal, GPIO.HIGH)
@@ -126,13 +149,21 @@ loop1 = 3
 loop2 = 5
 loop3 = 7
 loop4 = 11
+loop5 = 13
+loop6 = 15
+loop7 = 19
+loop8 = 11
 
-#init RPi.GPIO
+#init RPi.GPIO and setup pins
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(loop1, GPIO.OUT)
 GPIO.setup(loop2, GPIO.OUT)
 GPIO.setup(loop3, GPIO.OUT)
 GPIO.setup(loop4, GPIO.OUT)
+GPIO.setup(loop5, GPIO.OUT)
+GPIO.setup(loop6, GPIO.OUT)
+GPIO.setup(loop7, GPIO.OUT)
+GPIO.setup(loop8, GPIO.OUT)
 
 #init pygame (better keeb input and expandablity to display in the future)
 pygame.init()
@@ -149,55 +180,52 @@ saveLoop1 = InitializePedals(1)
 saveLoop2 = InitializePedals(2)
 saveLoop3 = InitializePedals(3)
 saveLoop4 = InitializePedals(4)
+saveLoop5 = InitializePedals(5)
+saveLoop6 = InitializePedals(6)
+saveLoop7 = InitializePedals(7)
+saveLoop8 = InitializePedals(8)
 
-savedPedals = [saveLoop1, saveLoop2, saveLoop3, saveLoop4] # stores the loops for pmode
+savedPedals = [saveLoop1, saveLoop2, 
+            saveLoop3, saveLoop4,
+            saveLoop5, saveLoop6,
+            saveLoop7, saveLoop8] # stores the loops for pmode
 activePedals = [] # stores the currently used pedals
 
 mainloop = True
 while mainloop:
-    if performance_mode == False:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                mainloop = False
-                
-            if event.type == pygame.KEYDOWN and current == 0:
-                current = pygame.key.name(event.key)
-                pressed_time = time.time()
-                if current == "escape":
-                    mainloop = False # debug option
-                if current == "/":
-                    performance_mode = True # changes pedal to pmode 
-                    InitPerformance()
-                    current = 0
-                    
+    for event in pygame.event.get():
+
+        if event.type == pygame.QUIT: # debug option
+            mainloop = False
+
+        if event.type == pygame.KEYDOWN and current == 0: # pressed down loop
+
+            current = pygame.key.name(event.key)
+            pressed_time = time.time()
+
+            if current == "escape":
+                mainloop = False # debug option
+            if current == "/":
+                performance_mode = not performance_mode # toggles performance mode 
+                InitPerformance()
+                current = 0
+
+        if performance_mode == False: # regular mode
             if event.type == pygame.KEYUP and current == pygame.key.name(event.key):
+
                 final_time = time.time() - pressed_time
+                
                 if final_time > 1: # switch held for longer than a second
                     SavePedals()
                 else:
                     ActivatePedals()
+                
                 current = 0
                 pressed_time = 0
-    else:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                mainloop = False
-                
-            if event.type == pygame.KEYDOWN and current == 0:
-                current = pygame.key.name(event.key)
-
-                if current == "escape":
-                    mainloop = False
-                if current == "/":
-                    performance_mode = False
-                    current = 0
-                    
+        else: # performance mode
             if event.type == pygame.KEYUP and current == pygame.key.name(event.key):
                 performance_current = ActivatePedalsPMode()
                 current = 0
-              
+
 pygame.quit()
 GPIO.cleanup()
-              
-              
-              
