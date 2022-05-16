@@ -152,7 +152,7 @@ loop4 = 11
 loop5 = 13
 loop6 = 15
 loop7 = 19
-loop8 = 11
+loop8 = 21
 
 #init RPi.GPIO and setup pins
 GPIO.setmode(GPIO.BOARD)
