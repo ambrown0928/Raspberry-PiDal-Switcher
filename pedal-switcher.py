@@ -6,7 +6,7 @@ import time
 import _pickle as pickle
 import pygame
 
-#pedal class
+# pedal class
 class Loop:
     switch = 0
     saved_pins = []
@@ -15,28 +15,28 @@ class Loop:
         self.switch = switch
         self.saved_pins = saved_pins
 
-#Saving to file using pickle
+# saving to file using pickle
 def SaveFile(filename, obj):
     with open (filename, 'wb') as outf:
         pickle.dump(obj, outf, -1)
-#end method
+# end method
         
-#Reading File using pickle
+# reading file using pickle
 def ReadFile(filename) :
     with open (filename, 'rb') as inf:
         return pickle.load(inf)
-#end method
+# end method
     
-#Initializing the "savedLoop" variables
+# Initializing the "savedLoop" variables
 def InitializePedals(switch):
     filename = "loop" + str(switch) + ".pkl"
     try:
         return ReadFile(filename)
     except Exception as e:
         return Loop(switch, [])
-#end method
+# end method
     
-#Turning pedals on and off based on which switch was pressed 
+# turning pedals on and off based on which switch was pressed 
 def ActivatePedals():
     if current == "1":
         SwitchPedals(loop1)
@@ -54,97 +54,69 @@ def ActivatePedals():
         SwitchPedals(loop7)
     elif current == "8":
         SwitchPedals(loop8)
-    print(activePedals)
-#end method
+    print(activePedals) # debug
+# end method
     
-#Toggling pedal state
-def SwitchPedals(loop):
+# toggling pedal state
+def SwitchPedals(loop): # loop = pedal loop to be switched
     if loop in activePedals:
         GPIO.output(loop, GPIO.LOW)
         activePedals.remove(loop)
-        print("Loop " + current + " removed")
+        print("Loop " + current + " removed") # debug
     else:
         GPIO.output(loop, GPIO.HIGH)
         activePedals.append(loop)
-        print("Loop " + current + " activated")
-#end method
+        print("Loop " + current + " activated") # debug
+# end method
         
-#Saving pedals to array and file
+# saving pedals to array and file
 def SavePedals():
-    if current == "1":
-        savedPedals[0].saved_pins = CopyArr(savedPedals[0].saved_pins, activePedals)
-    elif current == "2":
-        savedPedals[1].saved_pins = CopyArr(savedPedals[1].saved_pins, activePedals)
-    elif current == "3":
-        savedPedals[2].saved_pins = CopyArr(savedPedals[2].saved_pins, activePedals)
-    elif current == "4":
-        savedPedals[3].saved_pins = CopyArr(savedPedals[3].saved_pins, activePedals)
-    elif current == "5":
-        savedPedals[4].saved_pins = CopyArr(savedPedals[4].saved_pins, activePedals)
-    elif current == "6":
-        savedPedals[5].saved_pins = CopyArr(savedPedals[5].saved_pins, activePedals)
-    elif current == "7":
-        savedPedals[6].saved_pins = CopyArr(savedPedals[6].saved_pins, activePedals)
-    elif current == "8":
-        savedPedals[7].saved_pins = CopyArr(savedPedals[7].saved_pins, activePedals)
-    #save each pedal to its respective file
+    savedPedals[int(current) - 1].saved_pins = CopyArr(savedPedals[int(current) - 1].saved_pins, activePedals)
+    # save each pedal to its respective file
     for pedal in savedPedals:
         filename = "loop" + str(pedal.switch) + ".pkl"
         SaveFile(filename, pedal)
         print(pedal.switch, pedal.saved_pins)
-#end method
+# end method
         
-#copies contents of one array to another
-def CopyArr(arr1, arr2):
+# copies contents of one array to another
+def CopyArr(arr1, arr2): # arr1 = target, arr2 = source
     arr1 = []
     for item in arr2:
         arr1.append(item)
     return arr1
-#end method
+# end method
 
-#Initialize Performance Mode
+# initialize performance mode
 def InitPerformance() :
     global activePedals
-    for pedal in activePedals:
+    for pedal in activePedals: # turn off current pedals
         GPIO.output(pedal, GPIO.LOW)
     activePedals = []
-#end method
+# end method
     
-#Activates pedals in performance mode
+# activates pedals in performance mode
 def ActivatePedalsPMode():
     global activePedals
     
-    #turn off current pedals
+    # turn off current pedals
     for pedal in activePedals:
         GPIO.output(pedal, GPIO.LOW)
         print("Pin ", pedal, " turned off.")
-    if performance_current == current :
-        #switch pressed was the last one pressed
+    if performance_current == current : # switch pressed was the last one pressed
         return -1
-    if current == "1":
-        activePedals = CopyArr(activePedals, savedPedals[0].saved_pins)
-    elif current == "2":
-        activePedals = CopyArr(activePedals, savedPedals[1].saved_pins)
-    elif current == "3":
-        activePedals = CopyArr(activePedals, savedPedals[2].saved_pins)
-    elif current == "4":
-        activePedals = CopyArr(activePedals, savedPedals[3].saved_pins)
-    elif current == "5":
-        activePedals = CopyArr(activePedals, savedPedals[4].saved_pins)
-    elif current == "6":
-        activePedals = CopyArr(activePedals, savedPedals[5].saved_pins)
-    elif current == "7":
-        activePedals = CopyArr(activePedals, savedPedals[6].saved_pins)
-    elif current == "8":
-        activePedals = CopyArr(activePedals, savedPedals[7].saved_pins)
-    #turn on current pedals
+    
+    # copy the saved pedals array into the active pedals array
+    activePedals = CopyArr(activePedals, savedPedals[int(current) - 1].saved_pins)
+
+    # turn on current pedals
     for pedal in activePedals:
         GPIO.output(pedal, GPIO.HIGH)
         print("Pin ", pedal, " turned on.")
     return current
-#end method
+# end method
 
-#GPIO Pin Vars
+# GPIO Pin Vars
 loop1 = 3
 loop2 = 5
 loop3 = 7
@@ -154,7 +126,7 @@ loop6 = 15
 loop7 = 19
 loop8 = 21
 
-#init RPi.GPIO and setup pins
+# init RPi.GPIO and setup pins
 GPIO.setmode(GPIO.BOARD)
 GPIO.setup(loop1, GPIO.OUT)
 GPIO.setup(loop2, GPIO.OUT)
@@ -165,7 +137,7 @@ GPIO.setup(loop6, GPIO.OUT)
 GPIO.setup(loop7, GPIO.OUT)
 GPIO.setup(loop8, GPIO.OUT)
 
-#init pygame (better keeb input and expandablity to display in the future)
+# init pygame
 pygame.init()
 window = pygame.display.set_mode((300,300))
 
@@ -175,7 +147,7 @@ pressed_time = 0 # time the switch was pressed
 
 performance_mode = False # performance mode loads the loops created
 
-#loads the loops (either creates a new object or loads the file)
+# loads the loops (either creates a new object or loads the file)
 saveLoop1 = InitializePedals(1)
 saveLoop2 = InitializePedals(2)
 saveLoop3 = InitializePedals(3)
@@ -193,18 +165,17 @@ activePedals = [] # stores the currently used pedals
 
 mainloop = True
 while mainloop:
-    for event in pygame.event.get():
+    for event in pygame.event.get(): # pygame loop
 
-        if event.type == pygame.QUIT: # debug option
+        if event.type == pygame.QUIT: # debug option force quit
             mainloop = False
 
         if event.type == pygame.KEYDOWN and current == 0: # pressed down loop
-
             current = pygame.key.name(event.key)
             pressed_time = time.time()
 
             if current == "escape":
-                mainloop = False # debug option
+                mainloop = False # debug option force quit
             if current == "/":
                 performance_mode = not performance_mode # toggles performance mode 
                 InitPerformance()
@@ -212,7 +183,6 @@ while mainloop:
 
         if performance_mode == False: # regular mode
             if event.type == pygame.KEYUP and current == pygame.key.name(event.key):
-
                 final_time = time.time() - pressed_time
                 
                 if final_time > 1: # switch held for longer than a second

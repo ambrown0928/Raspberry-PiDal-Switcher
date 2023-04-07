@@ -13,6 +13,13 @@ Planned Features:
 - Screen Support
 - Smoother Build Process
 - 9V Output Jack (currently uses RasPi Re)
+- Support for RasPi alternatives
+
+Current items being worked on
+
+- Build guide & documentation for code
+- Custom QMK Firmware for switches
+- Drill templates
 
 ## Getting Started
 
