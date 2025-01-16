@@ -1,9 +1,9 @@
 #!usr/bin/python3
 
 #imports
-import RPi.GPIO as GPIO
+import gpiod
 import time
-import pickle
+import _pickle as pickle
 import pygame
 
 # pedal class
@@ -26,15 +26,7 @@ def ReadFile(filename) :
     with open (filename, 'rb') as inf:
         return pickle.load(inf)
 # end method
-      
-# copies contents of one array to another
-def CopyArr(arr1, arr2): # arr1 = target, arr2 = source
-    arr1 = []
-    for item in arr2:
-        arr1.append(item)
-    return arr1
-# end method
-
+    
 # Initializing the "savedLoop" variables
 def InitializePedals(switch):
     filename = "loop" + str(switch) + ".pkl"
@@ -45,7 +37,7 @@ def InitializePedals(switch):
 # end method
     
 # turning pedals on and off based on which switch was pressed 
-def ActivatePedals():        
+def ActivatePedals():
     if current == "1":
         SwitchPedals(loop1)
     elif current == "2":
@@ -77,7 +69,7 @@ def SwitchPedals(loop): # loop = pedal loop to be switched
         print("Loop " + current + " activated") # debug
 # end method
         
-# saves pedals to array and file
+# saving pedals to array and file
 def SavePedals():
     savedPedals[int(current) - 1].saved_pins = CopyArr(savedPedals[int(current) - 1].saved_pins, activePedals)
     # save each pedal to its respective file
@@ -85,6 +77,14 @@ def SavePedals():
         filename = "loop" + str(pedal.switch) + ".pkl"
         SaveFile(filename, pedal)
         print(pedal.switch, pedal.saved_pins)
+# end method
+        
+# copies contents of one array to another
+def CopyArr(arr1, arr2): # arr1 = target, arr2 = source
+    arr1 = []
+    for item in arr2:
+        arr1.append(item)
+    return arr1
 # end method
 
 # initialize performance mode
@@ -96,19 +96,16 @@ def InitPerformance() :
 # end method
     
 # activates pedals in performance mode
-def ActivatePedalsPerformanceMode():
+def ActivatePedalsPMode():
     global activePedals
     
     # turn off current pedals
     for pedal in activePedals:
         GPIO.output(pedal, GPIO.LOW)
         print("Pin ", pedal, " turned off.")
-    # end loop
     if performance_current == current : # switch pressed was the last one pressed
-        activePedals = []
         return -1
-    # end off check
-
+    
     # copy the saved pedals array into the active pedals array
     activePedals = CopyArr(activePedals, savedPedals[int(current) - 1].saved_pins)
 
@@ -116,8 +113,6 @@ def ActivatePedalsPerformanceMode():
     for pedal in activePedals:
         GPIO.output(pedal, GPIO.HIGH)
         print("Pin ", pedal, " turned on.")
-    # end loop
-    print(activePedals) # debug
     return current
 # end method
 
@@ -146,13 +141,9 @@ GPIO.setup(loop8, GPIO.OUT)
 pygame.init()
 window = pygame.display.set_mode((300,300))
 
-previous = 0 # previous switch pressed
 current = 0 # current switch pressed
 performance_current = 0 # previous switch pressed
-
 pressed_time = 0 # time the switch was pressed
-previous_pressed_time = 0 # started after switch is released
-final_previous_time = 0 # interval between release and press
 
 performance_mode = False # performance mode loads the loops created
 
@@ -179,47 +170,32 @@ while mainloop:
         if event.type == pygame.QUIT: # debug option force quit
             mainloop = False
 
-        if event.type == pygame.KEYDOWN and current == 0:
+        if event.type == pygame.KEYDOWN and current == 0: # pressed down loop
             current = pygame.key.name(event.key)
             pressed_time = time.time()
-            final_previous_time = pressed_time - previous_pressed_time;
-
-            if final_previous_time < 0.3 and not performance_mode and previous == current:
-                ActivatePedals()
-                SavePedals()
-                continue
-            # end save pedals check
 
             if current == "escape":
                 mainloop = False # debug option force quit
-            elif current == "/":
+            if current == "/":
                 performance_mode = not performance_mode # toggles performance mode 
                 InitPerformance()
                 current = 0
-            elif performance_mode:
-                performance_current = ActivatePedalsPerformanceMode()
-            else:
-                ActivatePedals()
-            # end key check
-        # end pressed down check
-        if event.type == pygame.KEYUP and current == pygame.key.name(event.key):
-            final_time = time.time() - pressed_time
 
-            if final_time > 0.5: # switch held for longer than half a second
-                if performance_mode:
-                    performance_current = ActivatePedalsPerformanceMode()
+        if performance_mode == False: # regular mode
+            if event.type == pygame.KEYUP and current == pygame.key.name(event.key):
+                final_time = time.time() - pressed_time
+                
+                if final_time > 1: # switch held for longer than a second
+                    SavePedals()
                 else:
                     ActivatePedals()
-                # end performance mode check
-            # end temporary activation check
-            
-            previous = current
-            current = 0
+                
+                current = 0
+                pressed_time = 0
+        else: # performance mode
+            if event.type == pygame.KEYUP and current == pygame.key.name(event.key):
+                performance_current = ActivatePedalsPMode()
+                current = 0
 
-            pressed_time = 0
-            previous_pressed_time = time.time();
-        # end released check
-    # end pygame loop
-# end main loop
 pygame.quit()
 GPIO.cleanup()
