@@ -96,8 +96,10 @@ def InitPerformance() :
 # end method
     
 # activates pedals in performance mode
-def ActivatePedalsPerformanceMode():
+def ActivatePedalsPerformanceMode(isTemp):
     global activePedals
+    global previousPedals
+    global performance_previous
     
     # turn off current pedals
     for pedal in activePedals:
@@ -105,10 +107,18 @@ def ActivatePedalsPerformanceMode():
         print("Pin ", pedal, " turned off.")
     # end loop
     if performance_current == current : # switch pressed was the last one pressed
+        if isTemp and performance_previous != -1: # switching between 2 loops
+            activePedals = CopyArr(activePedals, previousPedals);
+            for pedal in activePedals:
+                GPIO.output(pedal, GPIO.HIGH)
+                print("Pin ", pedal, " turned on.")
+            # end loop
+            print(activePedals, performance_previous, performance_current) # debug
+            return performance_previous
         activePedals = []
         return -1
     # end off check
-
+    previousPedals = CopyArr(previousPedals, activePedals);
     # copy the saved pedals array into the active pedals array
     activePedals = CopyArr(activePedals, savedPedals[int(current) - 1].saved_pins)
 
@@ -118,6 +128,7 @@ def ActivatePedalsPerformanceMode():
         print("Pin ", pedal, " turned on.")
     # end loop
     print(activePedals) # debug
+    performance_previous = performance_current
     return current
 # end method
 
@@ -147,8 +158,9 @@ pygame.init()
 window = pygame.display.set_mode((300,300))
 
 previous = 0 # previous switch pressed
+performance_previous = 0 # previous switch pressed performance mode
 current = 0 # current switch pressed
-performance_current = 0 # previous switch pressed
+performance_current = 0 # current switch pressed performance mode
 
 pressed_time = 0 # time the switch was pressed
 previous_pressed_time = 0 # started after switch is released
@@ -171,6 +183,7 @@ savedPedals = [saveLoop1, saveLoop2,
             saveLoop5, saveLoop6,
             saveLoop7, saveLoop8] # stores the loops for pmode
 activePedals = [] # stores the currently used pedals
+previousPedals = [] # used in performance mode to save previous pedals
 
 mainloop = True
 while mainloop:
@@ -197,7 +210,7 @@ while mainloop:
                 InitPerformance()
                 current = 0
             elif performance_mode:
-                performance_current = ActivatePedalsPerformanceMode()
+                performance_current = ActivatePedalsPerformanceMode(False)
             else:
                 ActivatePedals()
             # end key check
@@ -207,7 +220,7 @@ while mainloop:
 
             if final_time > 0.5: # switch held for longer than half a second
                 if performance_mode:
-                    performance_current = ActivatePedalsPerformanceMode()
+                    performance_current = ActivatePedalsPerformanceMode(True)
                 else:
                     ActivatePedals()
                 # end performance mode check
