@@ -2,6 +2,7 @@
 
 # imports
 import RPi.GPIO as GPIO
+import led_controller
 import time
 import pickle
 import pygame
@@ -57,6 +58,7 @@ def InitializePedals(bank, switch):
 def ActivateIndividalPedal():        
     switch =  int(current_switch_pressed) - 1;
     SwitchPedals(switch);
+    led_controller.ToggleLEDNormalMode(switch)
     print(active_pedals) # debug
 # end method
     
@@ -93,6 +95,7 @@ def ResetActivePedals() :
     global active_pedals
     for pedal in active_pedals: # turn off current pedals
         GPIO.output(pedal, GPIO.LOW)
+        led_controller.TurnOffAllLEDs()
     active_pedals = []
 # end method
 
@@ -113,11 +116,13 @@ def ActivatePedalsPerformanceMode(isTemp):
     global performance_previous_switch_pressed
     
     SetActivePedalsState(GPIO.LOW)
+    led_controller.ToggleLEDPerformanceMode(performance_current_switch_pressed)
 
     if performance_current_switch_pressed == current_switch_pressed : # switch pressed was the last one pressed
         if isTemp and performance_previous_switch_pressed != -1: # switching between 2 loops
             active_pedals = CopyArr(active_pedals, previous_pedals);
             SetActivePedalsState(GPIO.HIGH)
+            led_controller.ToggleLEDPerformanceMode(current_switch_pressed)
             return performance_previous_switch_pressed
         # end temporary check
         active_pedals = []
@@ -132,6 +137,7 @@ def ActivatePedalsPerformanceMode(isTemp):
 
     # activate pedals
     SetActivePedalsState(GPIO.HIGH)
+    led_controller.ToggleLEDPerformanceMode(current_switch_pressed)
     print(active_pedals) # debug
     performance_previous_switch_pressed = performance_current_switch_pressed
     return current_switch_pressed
