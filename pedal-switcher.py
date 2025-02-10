@@ -37,9 +37,9 @@ def ReadFile(filename) :
 # end method
       
 # copies contents of one array to another
-def CopyArr(arr1, arr2): # arr1 = target, arr2 = source
+def CopyArr(copy_arr):
     arr1 = []
-    for item in arr2:
+    for item in copy_arr:
         arr1.append(item)
     return arr1
 # end method
@@ -80,7 +80,7 @@ def SavePedals():
     index = int(current_switch_pressed) - 1
     if index >= max_switch_count:
         return
-    banks[bank_key][index].saved_pins = CopyArr(banks[bank_key][index].saved_pins, active_pedals)
+    banks[bank_key][index].saved_pins = CopyArr(active_pedals)
     # save each pedal to its respective file
     for pedal in banks[bank_key]:
         filename = f'/{bank_key}/loop{pedal.switch}.pkl'
@@ -116,7 +116,7 @@ def ActivatePedalsPerformanceMode(isTemp):
 
     if performance_current_switch_pressed == current_switch_pressed : # switch pressed was the last one pressed
         if isTemp and performance_previous_switch_pressed != -1: # switching between 2 loops
-            active_pedals = CopyArr(active_pedals, previous_pedals);
+            active_pedals = CopyArr(previous_pedals);
             SetActivePedalsState(GPIO.HIGH)
             return performance_previous_switch_pressed
         # end temporary check
@@ -124,11 +124,11 @@ def ActivatePedalsPerformanceMode(isTemp):
         return -1
     # end off check
 
-    previous_pedals = CopyArr(previous_pedals, active_pedals);
+    previous_pedals = CopyArr(active_pedals);
     # copy banked pedals into the active pedals
     bank_key = f'bank{current_bank}'
     index = int(current_switch_pressed) - 1
-    active_pedals = CopyArr(active_pedals, banks[bank_key][index].saved_pins)
+    active_pedals = CopyArr(banks[bank_key][index].saved_pins)
 
     # activate pedals
     SetActivePedalsState(GPIO.HIGH)
