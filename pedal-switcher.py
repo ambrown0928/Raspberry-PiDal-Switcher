@@ -9,10 +9,10 @@ import pygame
 import os
 import errno
 
-# pedal class
+# pedal class used to save a performance loop
 class Loop:
-    switch = 0
-    saved_pins = []
+    switch = 0 # switch associated with this class
+    saved_pins = [] # the saved pins inside this
     
     def __init__(self, switch, saved_pins):
         self.switch = switch
@@ -38,15 +38,16 @@ def ReadFile(filename) :
 # end method
       
 # copies contents of one array to another
-def CopyArr(arr1, arr2): # arr1 = target, arr2 = source
+def CopyArray(copy_arr):
     arr1 = []
-    for item in arr2:
+    for item in copy_arr:
         arr1.append(item)
     return arr1
 # end method
 
-# Initializing the "savedLoop" variables
-def InitializePedals(bank, switch):
+# initializes the pedal banks by reading the associated file, 
+# or returning an empty Loop
+def InitializePedalBank(bank, switch):
     filename = f'/bank{bank}/loop{switch}.pkl'
     try:
         return ReadFile(filename)
@@ -55,15 +56,15 @@ def InitializePedals(bank, switch):
 # end method
     
 # activate an individual pedal based on the switch pressed
-def ActivateIndividalPedal():        
+def ActivatePedalNormalMode():        
     switch =  int(current_switch_pressed) - 1;
-    SwitchPedals(switch);
+    SwitchPedalsNormalMode(switch);
     led_controller.ToggleLEDNormalMode(switch)
     print(active_pedals) # debug
 # end method
     
 # toggling pedal state
-def SwitchPedals(loop): # loop = pedal loop to be switched
+def SwitchPedalsNormalMode(loop): # loop = pedal to be switched
     if loop >= max_switch_count:
         return
     if loops[loop] in active_pedals:
@@ -77,12 +78,12 @@ def SwitchPedals(loop): # loop = pedal loop to be switched
 # end method
         
 # saves pedals to array and file
-def SavePedals():
+def SavePedalsToFile():
     bank_key = f'bank{current_bank}'
     index = int(current_switch_pressed) - 1
     if index >= max_switch_count:
         return
-    banks[bank_key][index].saved_pins = CopyArr(banks[bank_key][index].saved_pins, active_pedals)
+    banks[bank_key][index].saved_pins = CopyArray(active_pedals)
     # save each pedal to its respective file
     for pedal in banks[bank_key]:
         filename = f'/{bank_key}/loop{pedal.switch}.pkl'
@@ -90,7 +91,7 @@ def SavePedals():
         print(pedal.switch, pedal.saved_pins) # debug
 # end method
 
-# initialize performance mode
+# used when toggling performance mode
 def ResetActivePedals() :
     global active_pedals
     for pedal in active_pedals: # turn off current pedals
@@ -107,9 +108,9 @@ def SetActivePedalsState(gpio_state):
         print(f'Pin {pedal} is set to { gpio_state }') # debug
 # end method
 
-# passes isTemp bool to check for a temporary 
+# passes is_temp bool to check for a temporary 
 # pedal switch
-def ActivatePedalsPerformanceMode(isTemp):
+def ActivatePedalsPerformanceMode(is_temp):
     # necessary bc python sucks :(
     global active_pedals
     global previous_pedals
@@ -119,8 +120,8 @@ def ActivatePedalsPerformanceMode(isTemp):
     led_controller.ToggleLEDPerformanceMode(performance_current_switch_pressed)
 
     if performance_current_switch_pressed == current_switch_pressed : # switch pressed was the last one pressed
-        if isTemp and performance_previous_switch_pressed != -1: # switching between 2 loops
-            active_pedals = CopyArr(active_pedals, previous_pedals);
+        if is_temp and performance_previous_switch_pressed != -1: # switching between 2 loops
+            active_pedals = CopyArray(previous_pedals);
             SetActivePedalsState(GPIO.HIGH)
             led_controller.ToggleLEDPerformanceMode(current_switch_pressed)
             return performance_previous_switch_pressed
@@ -129,11 +130,11 @@ def ActivatePedalsPerformanceMode(isTemp):
         return -1
     # end off check
 
-    previous_pedals = CopyArr(previous_pedals, active_pedals);
+    previous_pedals = CopyArray(active_pedals);
     # copy banked pedals into the active pedals
     bank_key = f'bank{current_bank}'
     index = int(current_switch_pressed) - 1
-    active_pedals = CopyArr(active_pedals, banks[bank_key][index].saved_pins)
+    active_pedals = CopyArray(banks[bank_key][index].saved_pins)
 
     # activate pedals
     SetActivePedalsState(GPIO.HIGH)
@@ -143,7 +144,9 @@ def ActivatePedalsPerformanceMode(isTemp):
     return current_switch_pressed
 # end method
 
-# stores a reference to the GPIO pins used.
+# stores a reference to the GPIO pins used. whenever we
+# want to toggle a pedal in normal mode, we need to reference 
+# this array. 
 loops = [3, 5, 7, 11, 13, 15, 19, 21];
 
 # init RPi.GPIO and setup pins
@@ -178,12 +181,12 @@ for x in range(max_bank_count):
     bank_key = f'bank{x}'
     banked_pedals = []
     for y in range(max_switch_count):
-        banked_pedals.append(InitializePedals(x, y + 1))
+        banked_pedals.append(InitializePedalBank(x, y + 1))
     # end loop
     banks[bank_key] = banked_pedals
 # end loop
 
-active_pedals = [] # stores the currently used pedals
+active_pedals = [] # stores the currently used pedals as GPIO pins
 previous_pedals = [] # used in performance mode to save previous pedals
 
 mainloop = True
@@ -215,8 +218,8 @@ while mainloop:
                     ResetActivePedals()
                     current_switch_pressed = 0
                 elif not performance_mode: # save pedal bank
-                    ActivateIndividalPedal() # retoggle pedal associated w/switch
-                    SavePedals()
+                    ActivatePedalNormalMode() # retoggle pedal associated w/switch
+                    SavePedalsToFile()
                 continue # skip the rest of the code
             # end save pedals check
 
@@ -231,7 +234,7 @@ while mainloop:
             elif performance_mode:
                 performance_current_switch_pressed = ActivatePedalsPerformanceMode(False)
             else:
-                ActivateIndividalPedal()
+                ActivatePedalNormalMode()
             # end key check
         # end pressed check
         if event.type == pygame.KEYUP and current_switch_pressed == pygame.key.name(event.key):
@@ -253,7 +256,7 @@ while mainloop:
                 elif performance_mode:
                     performance_current_switch_pressed = ActivatePedalsPerformanceMode(True)
                 else:
-                    ActivateIndividalPedal() # toggle pedal
+                    ActivatePedalNormalMode() # toggle pedal
                 # end performance mode check
             # end temporary activation check
             
