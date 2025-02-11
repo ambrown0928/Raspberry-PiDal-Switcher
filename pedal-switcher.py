@@ -1,231 +1,263 @@
 #!usr/bin/python3
 
-#imports
+# imports
 import RPi.GPIO as GPIO
 import time
-import _pickle as pickle
+import pickle
 import pygame
+import os
+import errno
 
-#pedal class
+# pedal class used to save a performance loop
 class Loop:
-    switch = 0
-    saved_pins = []
+    switch = 0 # switch associated with this class
+    saved_pins = [] # the saved pins inside this
     
     def __init__(self, switch, saved_pins):
         self.switch = switch
         self.saved_pins = saved_pins
 
-#Saving to file using pickle
+# saving to file using pickle
 def SaveFile(filename, obj):
+    if not os.path.exists(os.path.dirname(filename)): # check directory exists
+        try:
+            os.makedirs(os.path.dirname(filename))
+        except OSError as exc: # guard against race condition
+            if exc.errno != errno.EXIST:
+                raise
+    # end directory check
     with open (filename, 'wb') as outf:
         pickle.dump(obj, outf, -1)
-#end method
+# end method
         
-#Reading File using pickle
+# reading file using pickle
 def ReadFile(filename) :
     with open (filename, 'rb') as inf:
         return pickle.load(inf)
-#end method
-    
-#Initializing the "savedLoop" variables
-def InitializePedals(switch):
-    filename = "loop" + str(switch) + ".pkl"
+# end method
+      
+# copies contents of one array to another
+def CopyArray(copy_arr):
+    arr1 = []
+    for item in copy_arr:
+        arr1.append(item)
+    return arr1
+# end method
+
+# initializes the pedal banks by reading the associated file, 
+# or returning an empty Loop
+def InitializePedalBank(bank, switch):
+    filename = f'/bank{bank}/loop{switch}.pkl'
     try:
         return ReadFile(filename)
     except Exception as e:
         return Loop(switch, [])
-#end method
+# end method
     
-#Turning pedals on and off based on which switch was pressed 
-def ActivatePedals():
-    if current == "1":
-        SwitchPedals(loop1)
-    elif current == "2":
-        SwitchPedals(loop2)
-    elif current == "3":
-        SwitchPedals(loop3)
-    elif current == "4":
-        SwitchPedals(loop4)
-    elif current == "5":
-        SwitchPedals(loop5)
-    elif current == "6":
-        SwitchPedals(loop6)
-    elif current == "7":
-        SwitchPedals(loop7)
-    elif current == "8":
-        SwitchPedals(loop8)
-    print(activePedals)
-#end method
+# activate an individual pedal based on the switch pressed
+def ActivatePedalNormalMode():        
+    switch =  int(current_switch_pressed) - 1;
+    SwitchPedalsNormalMode(switch);
+    print(active_pedals) # debug
+# end method
     
-#Toggling pedal state
-def SwitchPedals(loop):
-    if loop in activePedals:
+# toggling pedal state
+def SwitchPedalsNormalMode(loop): # loop = pedal to be switched
+    if loop >= max_switch_count:
+        return
+    if loops[loop] in active_pedals:
         GPIO.output(loop, GPIO.LOW)
-        activePedals.remove(loop)
-        print("Loop " + current + " removed")
+        active_pedals.remove(loops[loop])
+        print(f'Pin {loops[loop]} at switch {current_switch_pressed} removed') # debug
     else:
         GPIO.output(loop, GPIO.HIGH)
-        activePedals.append(loop)
-        print("Loop " + current + " activated")
-#end method
+        active_pedals.append(loops[loop])
+        print(f'Pin {loops[loop]} at switch {current_switch_pressed} added') # debug
+# end method
         
-#Saving pedals to array and file
-def SavePedals():
-    if current == "1":
-        savedPedals[0].saved_pins = CopyArr(savedPedals[0].saved_pins, activePedals)
-    elif current == "2":
-        savedPedals[1].saved_pins = CopyArr(savedPedals[1].saved_pins, activePedals)
-    elif current == "3":
-        savedPedals[2].saved_pins = CopyArr(savedPedals[2].saved_pins, activePedals)
-    elif current == "4":
-        savedPedals[3].saved_pins = CopyArr(savedPedals[3].saved_pins, activePedals)
-    elif current == "5":
-        savedPedals[4].saved_pins = CopyArr(savedPedals[4].saved_pins, activePedals)
-    elif current == "6":
-        savedPedals[5].saved_pins = CopyArr(savedPedals[5].saved_pins, activePedals)
-    elif current == "7":
-        savedPedals[6].saved_pins = CopyArr(savedPedals[6].saved_pins, activePedals)
-    elif current == "8":
-        savedPedals[7].saved_pins = CopyArr(savedPedals[7].saved_pins, activePedals)
-    #save each pedal to its respective file
-    for pedal in savedPedals:
-        filename = "loop" + str(pedal.switch) + ".pkl"
+# saves pedals to array and file
+def SavePedalsToFile():
+    bank_key = f'bank{current_bank}'
+    index = int(current_switch_pressed) - 1
+    if index >= max_switch_count:
+        return
+    banks[bank_key][index].saved_pins = CopyArray(active_pedals)
+    # save each pedal to its respective file
+    for pedal in banks[bank_key]:
+        filename = f'/{bank_key}/loop{pedal.switch}.pkl'
         SaveFile(filename, pedal)
-        print(pedal.switch, pedal.saved_pins)
-#end method
-        
-#copies contents of one array to another
-def CopyArr(arr1, arr2):
-    arr1 = []
-    for item in arr2:
-        arr1.append(item)
-    return arr1
-#end method
+        print(pedal.switch, pedal.saved_pins) # debug
+# end method
 
-#Initialize Performance Mode
-def InitPerformance() :
-    global activePedals
-    for pedal in activePedals:
+# used when toggling performance mode
+def ResetActivePedals() :
+    global active_pedals
+    for pedal in active_pedals: # turn off current pedals
         GPIO.output(pedal, GPIO.LOW)
-    activePedals = []
-#end method
+    active_pedals = []
+# end method
+
+# iterate through the active pedals array and
+# set the state to the parameter proviced
+def SetActivePedalsState(gpio_state):
+    for pedal in active_pedals:
+        GPIO.output(pedal, gpio_state)
+        print(f'Pin {pedal} is set to { gpio_state }') # debug
+# end method
+
+# passes is_temp bool to check for a temporary 
+# pedal switch
+def ActivatePedalsPerformanceMode(is_temp):
+    # necessary bc python sucks :(
+    global active_pedals
+    global previous_pedals
+    global performance_previous_switch_pressed
     
-#Activates pedals in performance mode
-def ActivatePedalsPMode():
-    global activePedals
-    
-    #turn off current pedals
-    for pedal in activePedals:
-        GPIO.output(pedal, GPIO.LOW)
-        print("Pin ", pedal, " turned off.")
-    if performance_current == current :
-        #switch pressed was the last one pressed
+    SetActivePedalsState(GPIO.LOW)
+
+    if performance_current_switch_pressed == current_switch_pressed : # switch pressed was the last one pressed
+        if is_temp and performance_previous_switch_pressed != -1: # switching between 2 loops
+            active_pedals = CopyArray(previous_pedals);
+            SetActivePedalsState(GPIO.HIGH)
+            return performance_previous_switch_pressed
+        # end temporary check
+        active_pedals = []
         return -1
-    if current == "1":
-        activePedals = CopyArr(activePedals, savedPedals[0].saved_pins)
-    elif current == "2":
-        activePedals = CopyArr(activePedals, savedPedals[1].saved_pins)
-    elif current == "3":
-        activePedals = CopyArr(activePedals, savedPedals[2].saved_pins)
-    elif current == "4":
-        activePedals = CopyArr(activePedals, savedPedals[3].saved_pins)
-    elif current == "5":
-        activePedals = CopyArr(activePedals, savedPedals[4].saved_pins)
-    elif current == "6":
-        activePedals = CopyArr(activePedals, savedPedals[5].saved_pins)
-    elif current == "7":
-        activePedals = CopyArr(activePedals, savedPedals[6].saved_pins)
-    elif current == "8":
-        activePedals = CopyArr(activePedals, savedPedals[7].saved_pins)
-    #turn on current pedals
-    for pedal in activePedals:
-        GPIO.output(pedal, GPIO.HIGH)
-        print("Pin ", pedal, " turned on.")
-    return current
-#end method
+    # end off check
 
-#GPIO Pin Vars
-loop1 = 3
-loop2 = 5
-loop3 = 7
-loop4 = 11
-loop5 = 13
-loop6 = 15
-loop7 = 19
-loop8 = 21
+    previous_pedals = CopyArray(active_pedals);
+    # copy banked pedals into the active pedals
+    bank_key = f'bank{current_bank}'
+    index = int(current_switch_pressed) - 1
+    active_pedals = CopyArray(banks[bank_key][index].saved_pins)
 
-#init RPi.GPIO and setup pins
+    # activate pedals
+    SetActivePedalsState(GPIO.HIGH)
+    print(active_pedals) # debug
+    performance_previous_switch_pressed = performance_current_switch_pressed
+    return current_switch_pressed
+# end method
+
+# stores a reference to the GPIO pins used. whenever we
+# want to toggle a pedal in normal mode, we need to reference 
+# this array. 
+loops = [3, 5, 7, 11, 13, 15, 19, 21];
+
+# init RPi.GPIO and setup pins
 GPIO.setmode(GPIO.BOARD)
-GPIO.setup(loop1, GPIO.OUT)
-GPIO.setup(loop2, GPIO.OUT)
-GPIO.setup(loop3, GPIO.OUT)
-GPIO.setup(loop4, GPIO.OUT)
-GPIO.setup(loop5, GPIO.OUT)
-GPIO.setup(loop6, GPIO.OUT)
-GPIO.setup(loop7, GPIO.OUT)
-GPIO.setup(loop8, GPIO.OUT)
+for loop in loops:
+    GPIO.setup(loop, GPIO.OUT)
+# end loop
 
-#init pygame (better keeb input and expandablity to display in the future)
+# init pygame
 pygame.init()
 window = pygame.display.set_mode((300,300))
 
-current = 0 # current switch pressed
-performance_current = 0 # previous switch pressed
-pressed_time = 0 # time the switch was pressed
+previous_switch_pressed = 0
+performance_previous_switch_pressed = 0 # previous performance loop activated
+current_switch_pressed = 0
+performance_current_switch_pressed = 0 # current active performance loop
+
+max_switch_count = 8 # adjust depending on number of switches desired
+
+pressed_time = 0 
+released_time = 0 
+press_release_interval = 0 # time between release and press
 
 performance_mode = False # performance mode loads the loops created
 
-#loads the loops (either creates a new object or loads the file)
-saveLoop1 = InitializePedals(1)
-saveLoop2 = InitializePedals(2)
-saveLoop3 = InitializePedals(3)
-saveLoop4 = InitializePedals(4)
-saveLoop5 = InitializePedals(5)
-saveLoop6 = InitializePedals(6)
-saveLoop7 = InitializePedals(7)
-saveLoop8 = InitializePedals(8)
+banks = { }
+max_bank_count = 16 # change this to increase the maximum number of banks
+current_bank = 0
 
-savedPedals = [saveLoop1, saveLoop2, 
-            saveLoop3, saveLoop4,
-            saveLoop5, saveLoop6,
-            saveLoop7, saveLoop8] # stores the loops for pmode
-activePedals = [] # stores the currently used pedals
+# init banks
+for x in range(max_bank_count):
+    bank_key = f'bank{x}'
+    banked_pedals = []
+    for y in range(max_switch_count):
+        banked_pedals.append(InitializePedalBank(x, y + 1))
+    # end loop
+    banks[bank_key] = banked_pedals
+# end loop
+
+active_pedals = [] # stores the currently used pedals as GPIO pins
+previous_pedals = [] # used in performance mode to save previous pedals
 
 mainloop = True
 while mainloop:
-    for event in pygame.event.get():
-
-        if event.type == pygame.QUIT: # debug option
+    for event in pygame.event.get(): # pygame loop
+        if event.type == pygame.QUIT: # debug option force quit
             mainloop = False
+        # end force quit check
+        if event.type == pygame.KEYDOWN and current_switch_pressed == 0:
 
-        if event.type == pygame.KEYDOWN and current == 0: # pressed down loop
-
-            current = pygame.key.name(event.key)
+            # get current switch and mark the time it was pressed
+            current_switch_pressed = pygame.key.name(event.key)
             pressed_time = time.time()
+            press_release_interval = pressed_time - released_time;
 
-            if current == "escape":
-                mainloop = False # debug option
-            if current == "/":
-                performance_mode = not performance_mode # toggles performance mode 
-                InitPerformance()
-                current = 0
+            # if user pressed a switch again in a short time, and the previous switch
+            # is equal to the current switch, then the user was trying to save
+            # a pedal configuration to the switch pressed (or toggle performance
+            # mode if the switch was the bank switch.) 
+            # 
+            # note: due to the way this program works, we have to reset the state of
+            # whatever switch was pressed, otherwise the pedal will run into
+            # weird bugs with if the pedal is currently activated or the bank is the 
+            # correct, current bank.
+            if press_release_interval < 0.3 and previous_switch_pressed == current_switch_pressed:
+                if current_switch_pressed == "/":  # toggle performance mode 
+                    current_bank = current_bank - 1 # reduce bank to previous one
+                    performance_mode = not performance_mode
+                    ResetActivePedals()
+                    current_switch_pressed = 0
+                elif not performance_mode: # save pedal bank
+                    ActivatePedalNormalMode() # retoggle pedal associated w/switch
+                    SavePedalsToFile()
+                continue # skip the rest of the code
+            # end save pedals check
 
-        if performance_mode == False: # regular mode
-            if event.type == pygame.KEYUP and current == pygame.key.name(event.key):
-
-                final_time = time.time() - pressed_time
-                
-                if final_time > 1: # switch held for longer than a second
-                    SavePedals()
+            if current_switch_pressed == "escape":
+                mainloop = False # debug option force quit
+            elif current_switch_pressed == "/": # move up in bank
+                if current_bank == max_bank_count - 1:
+                    current_bank = 0
                 else:
-                    ActivatePedals()
-                
-                current = 0
-                pressed_time = 0
-        else: # performance mode
-            if event.type == pygame.KEYUP and current == pygame.key.name(event.key):
-                performance_current = ActivatePedalsPMode()
-                current = 0
+                    current_bank = current_bank + 1
+                print(f'bank{current_bank}')
+            elif performance_mode:
+                performance_current_switch_pressed = ActivatePedalsPerformanceMode(False)
+            else:
+                ActivatePedalNormalMode()
+            # end key check
+        # end pressed check
+        if event.type == pygame.KEYUP and current_switch_pressed == pygame.key.name(event.key):
+            released_time = time.time();
+            time_difference = released_time - pressed_time
 
+            if time_difference > 0.5: # switch held for longer than half a second, meaning its a temporary activation
+                if current_switch_pressed == "/": # go down on the banks
+                    # we go down 2 because the bank is always increased
+                    # when the footswitch is pressed, regardless of 
+                    # how long it was held down
+                    if current_bank == 1:
+                        current_bank = max_bank_count - 1
+                    elif current_bank == 0:
+                        current_bank = max_bank_count - 2
+                    else:
+                        current_bank = current_bank - 2;
+                    print(f'bank{current_bank}') # debug
+                elif performance_mode:
+                    performance_current_switch_pressed = ActivatePedalsPerformanceMode(True)
+                else:
+                    ActivatePedalNormalMode() # toggle pedal
+                # end performance mode check
+            # end temporary activation check
+            
+            previous_switch_pressed = current_switch_pressed
+            current_switch_pressed = 0
+        # end released check
+    # end pygame loop
+# end main loop
 pygame.quit()
 GPIO.cleanup()
