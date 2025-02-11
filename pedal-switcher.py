@@ -84,6 +84,7 @@ def SavePedalsToFile():
     if index >= max_switch_count:
         return
     banks[bank_key][index].saved_pins = CopyArray(active_pedals)
+    led_controller.FlashLEDOnSave(index);
     # save each pedal to its respective file
     for pedal in banks[bank_key]:
         filename = f'/{bank_key}/loop{pedal.switch}.pkl'
@@ -96,7 +97,7 @@ def ResetActivePedals() :
     global active_pedals
     for pedal in active_pedals: # turn off current pedals
         GPIO.output(pedal, GPIO.LOW)
-        led_controller.TurnOffAllLEDs()
+    led_controller.TurnOffAllLEDs()
     active_pedals = []
 # end method
 
@@ -110,7 +111,7 @@ def SetActivePedalsState(gpio_state):
 
 # passes is_temp bool to check for a temporary 
 # pedal switch
-def ActivatePedalsPerformanceMode(is_temp):
+def ActivatePedalsPerformanceMode(is_temp : bool):
     # necessary bc python sucks :(
     global active_pedals
     global previous_pedals
@@ -123,7 +124,7 @@ def ActivatePedalsPerformanceMode(is_temp):
         if is_temp and performance_previous_switch_pressed != -1: # switching between 2 loops
             active_pedals = CopyArray(previous_pedals);
             SetActivePedalsState(GPIO.HIGH)
-            led_controller.ToggleLEDPerformanceMode(current_switch_pressed)
+            led_controller.ToggleLEDPerformanceMode(performance_previous_switch_pressed)
             return performance_previous_switch_pressed
         # end temporary check
         active_pedals = []
@@ -142,6 +143,37 @@ def ActivatePedalsPerformanceMode(is_temp):
     print(active_pedals) # debug
     performance_previous_switch_pressed = performance_current_switch_pressed
     return current_switch_pressed
+# end method
+
+# use to move up or down in banks. when using, pass a 
+# bool to tell the function whether you're moving up
+# or down in the banks.
+def ChangeBank(move_up : bool, performance_mode : bool):
+    if move_up:
+        if current_bank == max_bank_count - 1: # loop
+            current_bank = 0
+        else:
+            current_bank = current_bank + 1
+    else:
+        # we go down by 2 because the bank is always increased
+        # when the footswitch is pressed, regardless of 
+        # how long it was held down
+        if current_bank == 1:
+            current_bank = max_bank_count - 1
+        elif current_bank == 0:
+            current_bank = max_bank_count - 2
+        else:
+            current_bank = current_bank - 2;
+    led_controller.ChangeCurrentColor(current_bank)
+    print(f'bank{current_bank}') # debug
+
+    # if we're in performance mode, we want to
+    # reset the active pedals, so we don't get 
+    # any weirdness with the active pedal bank
+    # not being associated with the current 
+    # switch/bank combo.
+    if performance_mode:
+        ResetActivePedals()
 # end method
 
 # stores a reference to the GPIO pins used. whenever we
@@ -226,11 +258,7 @@ while mainloop:
             if current_switch_pressed == "escape":
                 mainloop = False # debug option force quit
             elif current_switch_pressed == "/": # move up in bank
-                if current_bank == max_bank_count - 1:
-                    current_bank = 0
-                else:
-                    current_bank = current_bank + 1
-                print(f'bank{current_bank}')
+                ChangeBank(True, performance_mode)
             elif performance_mode:
                 performance_current_switch_pressed = ActivatePedalsPerformanceMode(False)
             else:
@@ -243,16 +271,7 @@ while mainloop:
 
             if time_difference > 0.5: # switch held for longer than half a second, meaning its a temporary activation
                 if current_switch_pressed == "/": # go down on the banks
-                    # we go down 2 because the bank is always increased
-                    # when the footswitch is pressed, regardless of 
-                    # how long it was held down
-                    if current_bank == 1:
-                        current_bank = max_bank_count - 1
-                    elif current_bank == 0:
-                        current_bank = max_bank_count - 2
-                    else:
-                        current_bank = current_bank - 2;
-                    print(f'bank{current_bank}') # debug
+                    ChangeBank(False, performance_mode)
                 elif performance_mode:
                     performance_current_switch_pressed = ActivatePedalsPerformanceMode(True)
                 else:
