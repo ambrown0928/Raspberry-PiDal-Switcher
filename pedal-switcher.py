@@ -268,7 +268,7 @@ for loop in loops:
 
 # init pygame
 pygame.init()
-window = pygame.display.set_mode((300,300))
+window = pygame.display.set_mode((800,480))
 
 previous_switch_pressed = 0
 previous_performance_loop = 0 # previous performance loop activated
