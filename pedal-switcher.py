@@ -282,6 +282,8 @@ released_time = 0
 press_release_interval = 0 # time between release and press
 
 performance_mode = False # performance mode loads the loops created
+active_pedals = [] # stores the currently used pedals as GPIO pins
+previous_pedals = [] # used in performance mode to save previous pedals
 
 banks = { }
 max_bank_count = 16 # change this to increase the maximum number of banks
@@ -296,9 +298,6 @@ for x in range(max_bank_count):
     # end loop
     banks[bank_key] = banked_pedals
 # end loop
-
-active_pedals = [] # stores the currently used pedals as GPIO pins
-previous_pedals = [] # used in performance mode to save previous pedals
 
 mainloop = True
 while mainloop:
