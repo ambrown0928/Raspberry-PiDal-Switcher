@@ -2,16 +2,21 @@
 
 # imports
 import RPi.GPIO as GPIO
+import led_controller
 import time
 import pickle
 import pygame
 import os
 import errno
 
-# pedal class used to save a performance loop
 class Loop:
-    switch = 0 # switch associated with this class
-    saved_pins = [] # the saved pins inside this
+    """
+    This class is used in the saving and loading of performance
+    loops. It stores the switch associated with the loop, and the
+    pins that are saved on that switch.
+    """
+    switch = 0 # switch associated with this loop
+    saved_pins = [] # the saved pins inside this loop
     
     def __init__(self, switch, saved_pins):
         self.switch = switch
@@ -19,6 +24,14 @@ class Loop:
 
 # saving to file using pickle
 def SaveFile(filename, obj):
+    """
+    This method is used to save a performance loop to a file.
+    We use Python's Pickle library when saving.
+
+    Args:
+        filename (string): The directory and filename to save the performance loop to.
+        obj (Loop): The loop to save in the file.
+    """
     if not os.path.exists(os.path.dirname(filename)): # check directory exists
         try:
             os.makedirs(os.path.dirname(filename))
@@ -30,23 +43,52 @@ def SaveFile(filename, obj):
         pickle.dump(obj, outf, -1)
 # end method
         
-# reading file using pickle
 def ReadFile(filename) :
+    """
+    This method reads an object at the given filename
+    and returns the data stored there. We use Python's
+    Pickle library when saving.
+
+    Args:
+        filename (string): The directory and filename to load from.
+    Returns:
+        Loop: the performance loop stored in the file.
+    """
     with open (filename, 'rb') as inf:
         return pickle.load(inf)
 # end method
       
-# copies contents of one array to another
-def CopyArray(copy_arr):
+def CopyList(list):
+    """
+    Creates a copy of a list to replace another list. 
+
+    Args:
+        list (List): The list to copy.
+
+    Returns:
+        List: a copied version of the list.
+    """
     arr1 = []
-    for item in copy_arr:
+    for item in list:
         arr1.append(item)
     return arr1
 # end method
 
-# initializes the pedal banks by reading the associated file, 
-# or returning an empty Loop
 def InitializePedalBank(bank, switch):
+    """
+    Initialize a pedal bank and switch by reading the 
+    file at the given location. If there's no file 
+    associated with that location, return a new loop
+    with the switch and an empty list of pins.
+
+    Args:
+        bank (int): The bank the loop is saved in.
+        switch (int): The switch the loop is saved in.
+
+    Returns:
+        Loop: returns either the saved loop or a new loop
+        with the switch and an empty list of saved pins.
+    """
     filename = f'/bank{bank}/loop{switch}.pkl'
     try:
         return ReadFile(filename)
@@ -54,34 +96,42 @@ def InitializePedalBank(bank, switch):
         return Loop(switch, [])
 # end method
     
-# activate an individual pedal based on the switch pressed
-def ActivatePedalNormalMode():        
+def TogglePedalNormalMode():        
+    """
+    Toggles a pedal in normal mode. The pedal to toggle is gotten
+    from the current_switch_pressed field, which is global and 
+    assigned based on the switch the user presses.
+    """
     switch =  int(current_switch_pressed) - 1;
-    SwitchPedalsNormalMode(switch);
+    pin = loops[switch] # GPIO pin associated with switch/pedal
+    if switch >= max_switch_count:
+        return
+    if pin in active_pedals: # turn pedal off
+        GPIO.output(pin, GPIO.LOW)
+        active_pedals.remove(pin)
+        led_controller.ToggleLED(switch, led_controller.RGB_OFF)
+        print(f'Pin {pin} at switch {current_switch_pressed} removed') # debug
+    else: # turn pedal on
+        GPIO.output(pin, GPIO.HIGH)
+        active_pedals.append(pin)
+        led_controller.ToggleLED(switch, led_controller.normal_color)
+        print(f'Pin {pin} at switch {current_switch_pressed} added') # debug
     print(active_pedals) # debug
 # end method
-    
-# toggling pedal state
-def SwitchPedalsNormalMode(loop): # loop = pedal to be switched
-    if loop >= max_switch_count:
-        return
-    if loops[loop] in active_pedals:
-        GPIO.output(loop, GPIO.LOW)
-        active_pedals.remove(loops[loop])
-        print(f'Pin {loops[loop]} at switch {current_switch_pressed} removed') # debug
-    else:
-        GPIO.output(loop, GPIO.HIGH)
-        active_pedals.append(loops[loop])
-        print(f'Pin {loops[loop]} at switch {current_switch_pressed} added') # debug
-# end method
         
-# saves pedals to array and file
 def SavePedalsToFile():
+    """
+    Saves the current configuration of active pedals to the 
+    current bank and switch. Uses the current_bank and the
+    current_switch_pressed fields, which are defined and 
+    manipulated outside of this method.
+    """
     bank_key = f'bank{current_bank}'
     index = int(current_switch_pressed) - 1
     if index >= max_switch_count:
         return
-    banks[bank_key][index].saved_pins = CopyArray(active_pedals)
+    banks[bank_key][index].saved_pins = CopyList(active_pedals)
+    led_controller.FlashLEDOnSave(index);
     # save each pedal to its respective file
     for pedal in banks[bank_key]:
         filename = f'/{bank_key}/loop{pedal.switch}.pkl'
@@ -89,17 +139,31 @@ def SavePedalsToFile():
         print(pedal.switch, pedal.saved_pins) # debug
 # end method
 
-# used when toggling performance mode
 def ResetActivePedals() :
+    """
+    Turns off all the active pedals in the active_pedals
+    list, and then clears the list of all pedals. This 
+    method is mostly used when toggling performance mode,
+    so as to avoid any overlap with currently active pedals.
+    """
     global active_pedals
-    for pedal in active_pedals: # turn off current pedals
-        GPIO.output(pedal, GPIO.LOW)
+    SetActivePedalsState(GPIO.LOW)
+    led_controller.TurnOffAllLEDs()
     active_pedals = []
 # end method
 
 # iterate through the active pedals array and
 # set the state to the parameter proviced
 def SetActivePedalsState(gpio_state):
+    """
+    Changes the state of all the pedals in the active_pedals
+    list to be the state provided. Before using this function,
+    make sure that the active_pedals list is set to the pedals
+    you want to turn on or off.
+
+    Args:
+        gpio_state (GPIO): The state to set the pedals to. Make sure to only pass GPIO.LOW or GPIO.HIGH.
+    """
     for pedal in active_pedals:
         GPIO.output(pedal, gpio_state)
         print(f'Pin {pedal} is set to { gpio_state }') # debug
@@ -107,35 +171,92 @@ def SetActivePedalsState(gpio_state):
 
 # passes is_temp bool to check for a temporary 
 # pedal switch
-def ActivatePedalsPerformanceMode(is_temp):
+def TogglePedalsPerformanceMode(is_temp : bool):
+    """
+    Toggles a performance loop on or off. If the is_temp parameter
+    is true, that means that we're releasing the switch, and we
+    want to re-activate the previous performance loop.
+
+    Args:
+        is_temp (bool): If true, then we're performing a temporary activation.
+
+    Returns:
+        int: We return the current_switch_pressed and set it to the current_performance_loop, 
+        which is used to store the current performance loop that is active. If we're deactivating
+        a performance loop, then we return -1, so that the program is aware that we don't have an
+        active performance loop.
+    """
     # necessary bc python sucks :(
     global active_pedals
     global previous_pedals
-    global performance_previous_switch_pressed
+    global previous_performance_loop
     
     SetActivePedalsState(GPIO.LOW)
+    index = int(current_switch_pressed) - 1
+    if index >= max_switch_count:
+        return -1
+    led_controller.ToggleLED(current_performance_loop, led_controller.RGB_OFF)
 
-    if performance_current_switch_pressed == current_switch_pressed : # switch pressed was the last one pressed
-        if is_temp and performance_previous_switch_pressed != -1: # switching between 2 loops
-            active_pedals = CopyArray(previous_pedals);
+    if current_performance_loop == index : # switch pressed was the last one pressed
+        if is_temp and previous_performance_loop != -1: # switching between 2 loops
+            active_pedals = CopyList(previous_pedals);
             SetActivePedalsState(GPIO.HIGH)
-            return performance_previous_switch_pressed
+            led_controller.ToggleLED(previous_performance_loop, led_controller.current_bank_color)
+            return previous_performance_loop
         # end temporary check
         active_pedals = []
         return -1
     # end off check
 
-    previous_pedals = CopyArray(active_pedals);
+    previous_pedals = CopyList(active_pedals);
     # copy banked pedals into the active pedals
     bank_key = f'bank{current_bank}'
-    index = int(current_switch_pressed) - 1
-    active_pedals = CopyArray(banks[bank_key][index].saved_pins)
+    active_pedals = CopyList(banks[bank_key][index].saved_pins)
 
     # activate pedals
     SetActivePedalsState(GPIO.HIGH)
+    led_controller.ToggleLEDPerformanceMode(index, led_controller.current_bank_color)
     print(active_pedals) # debug
-    performance_previous_switch_pressed = performance_current_switch_pressed
-    return current_switch_pressed
+    previous_performance_loop = current_performance_loop
+    return index
+# end method
+
+# use to move up or down in banks. when using, pass a 
+# bool to tell the function whether you're moving up
+# or down in the banks.
+def ChangeBank(move_up : bool):
+    """
+    Change the current bank. 
+
+    Args:
+        move_up (bool): lets the function know whether we're moving up or down in the bank.
+    """
+    global current_bank;
+    if move_up:
+        if current_bank == max_bank_count - 1: # loop
+            current_bank = 0
+        else:
+            current_bank = current_bank + 1
+    else:
+        # we go down by 2 because the bank is always increased
+        # when the footswitch is pressed, regardless of 
+        # how long it was held down
+        if current_bank == 1:
+            current_bank = max_bank_count - 1
+        elif current_bank == 0:
+            current_bank = max_bank_count - 2
+        else:
+            current_bank = current_bank - 2;
+    led_controller.ChangeCurrentColor(current_bank)
+    print(f'bank{current_bank}') # debug
+
+    # if we're in performance mode, we want to
+    # reset the active pedals, so we don't get 
+    # any weirdness with the active pedal bank
+    # not being associated with the current 
+    # switch/bank combo.
+    if performance_mode:
+        ResetActivePedals()
 # end method
 
 # stores a reference to the GPIO pins used. whenever we
@@ -144,19 +265,18 @@ def ActivatePedalsPerformanceMode(is_temp):
 loops = [3, 5, 7, 11, 13, 15, 19, 21];
 
 # init RPi.GPIO and setup pins
-GPIO.setmode(GPIO.BOARD)
 for loop in loops:
     GPIO.setup(loop, GPIO.OUT)
 # end loop
 
 # init pygame
 pygame.init()
-window = pygame.display.set_mode((300,300))
+window = pygame.display.set_mode((800,480))
 
 previous_switch_pressed = 0
-performance_previous_switch_pressed = 0 # previous performance loop activated
+previous_performance_loop = -1 # previous performance loop activated
 current_switch_pressed = 0
-performance_current_switch_pressed = 0 # current active performance loop
+current_performance_loop = -1 # current active performance loop
 
 max_switch_count = 8 # adjust depending on number of switches desired
 
@@ -165,6 +285,8 @@ released_time = 0
 press_release_interval = 0 # time between release and press
 
 performance_mode = False # performance mode loads the loops created
+active_pedals = [] # stores the currently used pedals as GPIO pins
+previous_pedals = [] # used in performance mode to save previous pedals
 
 banks = { }
 max_bank_count = 16 # change this to increase the maximum number of banks
@@ -179,9 +301,6 @@ for x in range(max_bank_count):
     # end loop
     banks[bank_key] = banked_pedals
 # end loop
-
-active_pedals = [] # stores the currently used pedals as GPIO pins
-previous_pedals = [] # used in performance mode to save previous pedals
 
 mainloop = True
 while mainloop:
@@ -210,25 +329,21 @@ while mainloop:
                     current_bank = current_bank - 1 # reduce bank to previous one
                     performance_mode = not performance_mode
                     ResetActivePedals()
-                    current_switch_pressed = 0
                 elif not performance_mode: # save pedal bank
-                    ActivatePedalNormalMode() # retoggle pedal associated w/switch
+                    TogglePedalNormalMode() # retoggle pedal associated w/switch
                     SavePedalsToFile()
+                current_switch_pressed = 0
                 continue # skip the rest of the code
             # end save pedals check
 
             if current_switch_pressed == "escape":
                 mainloop = False # debug option force quit
             elif current_switch_pressed == "/": # move up in bank
-                if current_bank == max_bank_count - 1:
-                    current_bank = 0
-                else:
-                    current_bank = current_bank + 1
-                print(f'bank{current_bank}')
+                ChangeBank(True)
             elif performance_mode:
-                performance_current_switch_pressed = ActivatePedalsPerformanceMode(False)
+                current_performance_loop = TogglePedalsPerformanceMode(False)
             else:
-                ActivatePedalNormalMode()
+                TogglePedalNormalMode()
             # end key check
         # end pressed check
         if event.type == pygame.KEYUP and current_switch_pressed == pygame.key.name(event.key):
@@ -237,20 +352,11 @@ while mainloop:
 
             if time_difference > 0.5: # switch held for longer than half a second, meaning its a temporary activation
                 if current_switch_pressed == "/": # go down on the banks
-                    # we go down 2 because the bank is always increased
-                    # when the footswitch is pressed, regardless of 
-                    # how long it was held down
-                    if current_bank == 1:
-                        current_bank = max_bank_count - 1
-                    elif current_bank == 0:
-                        current_bank = max_bank_count - 2
-                    else:
-                        current_bank = current_bank - 2;
-                    print(f'bank{current_bank}') # debug
+                    ChangeBank(False)
                 elif performance_mode:
-                    performance_current_switch_pressed = ActivatePedalsPerformanceMode(True)
+                    current_performance_loop = TogglePedalsPerformanceMode(True)
                 else:
-                    ActivatePedalNormalMode() # toggle pedal
+                    TogglePedalNormalMode() # toggle pedal
                 # end performance mode check
             # end temporary activation check
             
@@ -261,3 +367,4 @@ while mainloop:
 # end main loop
 pygame.quit()
 GPIO.cleanup()
+led_controller.Shutdown()
