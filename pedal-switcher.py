@@ -109,12 +109,13 @@ def TogglePedalNormalMode():
     if pin in active_pedals: # turn pedal off
         GPIO.output(pin, GPIO.LOW)
         active_pedals.remove(pin)
+        led_controller.ToggleLED(switch, led_controller.RGB_OFF)
         print(f'Pin {pin} at switch {current_switch_pressed} removed') # debug
     else: # turn pedal on
         GPIO.output(pin, GPIO.HIGH)
         active_pedals.append(pin)
+        led_controller.ToggleLED(switch, led_controller.normal_color)
         print(f'Pin {pin} at switch {current_switch_pressed} added') # debug
-    led_controller.ToggleLEDNormalMode(switch)
     print(active_pedals) # debug
 # end method
         
@@ -191,13 +192,16 @@ def TogglePedalsPerformanceMode(is_temp : bool):
     global previous_performance_loop
     
     SetActivePedalsState(GPIO.LOW)
-    led_controller.ToggleLEDPerformanceMode(current_performance_loop)
+    index = int(current_switch_pressed) - 1
+    if index >= max_switch_count:
+        return -1
+    led_controller.ToggleLED(current_performance_loop, led_controller.RGB_OFF)
 
-    if current_performance_loop == current_switch_pressed : # switch pressed was the last one pressed
+    if current_performance_loop == index : # switch pressed was the last one pressed
         if is_temp and previous_performance_loop != -1: # switching between 2 loops
             active_pedals = CopyList(previous_pedals);
             SetActivePedalsState(GPIO.HIGH)
-            led_controller.ToggleLEDPerformanceMode(previous_performance_loop)
+            led_controller.ToggleLED(previous_performance_loop, led_controller.current_bank_color)
             return previous_performance_loop
         # end temporary check
         active_pedals = []
@@ -207,15 +211,14 @@ def TogglePedalsPerformanceMode(is_temp : bool):
     previous_pedals = CopyList(active_pedals);
     # copy banked pedals into the active pedals
     bank_key = f'bank{current_bank}'
-    index = int(current_switch_pressed) - 1
     active_pedals = CopyList(banks[bank_key][index].saved_pins)
 
     # activate pedals
     SetActivePedalsState(GPIO.HIGH)
-    led_controller.ToggleLEDPerformanceMode(current_switch_pressed)
+    led_controller.ToggleLEDPerformanceMode(index, led_controller.current_bank_color)
     print(active_pedals) # debug
     previous_performance_loop = current_performance_loop
-    return current_switch_pressed
+    return index
 # end method
 
 # use to move up or down in banks. when using, pass a 
@@ -228,6 +231,7 @@ def ChangeBank(move_up : bool):
     Args:
         move_up (bool): lets the function know whether we're moving up or down in the bank.
     """
+    global current_bank;
     if move_up:
         if current_bank == max_bank_count - 1: # loop
             current_bank = 0
@@ -261,7 +265,6 @@ def ChangeBank(move_up : bool):
 loops = [3, 5, 7, 11, 13, 15, 19, 21];
 
 # init RPi.GPIO and setup pins
-GPIO.setmode(GPIO.BOARD)
 for loop in loops:
     GPIO.setup(loop, GPIO.OUT)
 # end loop
@@ -271,9 +274,9 @@ pygame.init()
 window = pygame.display.set_mode((800,480))
 
 previous_switch_pressed = 0
-previous_performance_loop = 0 # previous performance loop activated
+previous_performance_loop = -1 # previous performance loop activated
 current_switch_pressed = 0
-current_performance_loop = 0 # current active performance loop
+current_performance_loop = -1 # current active performance loop
 
 max_switch_count = 8 # adjust depending on number of switches desired
 
@@ -326,10 +329,10 @@ while mainloop:
                     current_bank = current_bank - 1 # reduce bank to previous one
                     performance_mode = not performance_mode
                     ResetActivePedals()
-                    current_switch_pressed = 0
                 elif not performance_mode: # save pedal bank
                     TogglePedalNormalMode() # retoggle pedal associated w/switch
                     SavePedalsToFile()
+                current_switch_pressed = 0
                 continue # skip the rest of the code
             # end save pedals check
 
@@ -364,3 +367,4 @@ while mainloop:
 # end main loop
 pygame.quit()
 GPIO.cleanup()
+led_controller.Shutdown()

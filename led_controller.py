@@ -46,7 +46,7 @@ def ChangeCurrentColor(bank):
         bank (int): The index of the current bank. 
     """
     global current_bank_color
-    if bank > colors.count:
+    if bank > len(colors):
         return
     current_bank_color = colors[bank]
     leds[bank_switch] = current_bank_color
@@ -61,7 +61,10 @@ def TurnOffAllLEDs():
     leds.fill(RGB_OFF)
     leds[bank_switch] = current_bank_color
 
-def ToggleLEDNormalMode(current_switch):
+def Shutdown():
+    leds.fill(RGB_OFF)
+
+def ToggleLED(current_switch, color):
     """
     This method is used to toggle an LED in normal
     mode. The default LED color in normal mode is red.
@@ -69,10 +72,7 @@ def ToggleLEDNormalMode(current_switch):
     Args:
         current_switch (int): The current switch LED to turn off.
     """
-    if leds[current_switch] == normal_color:
-        leds[current_switch] = RGB_OFF
-    else:
-        leds[current_switch] = normal_color
+    leds[current_switch] == color
 # end method 
 
 def FlashLEDOnSave(current_switch):
@@ -93,18 +93,4 @@ def FlashLEDOnSave(current_switch):
         time.sleep(0.1)
     # end loop
     leds[current_switch] = saved_color;
-# end method
-
-def ToggleLEDPerformanceMode(current_switch):
-    """
-    This method toggles the switch LED in performance mode,
-    which uses the current bank color.
-    
-    Args:
-        current_switch (int): The current switch LED to change.
-    """
-    if leds[current_switch] == current_bank_color:
-        leds[current_switch] = RGB_OFF
-    else:
-        leds[current_switch] = current_bank_color
 # end method
