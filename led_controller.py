@@ -37,7 +37,7 @@ bank_switch = 8 # index of LED for bank switch. change depending on number of sw
 leds.fill(RGB_OFF)
 leds[bank_switch] = current_bank_color
 
-def ChangeCurrentColor(bank):
+def ChangeCurrentBankColor(bank):
     """ 
     This method is used to change the current
     bank color.
@@ -51,6 +51,13 @@ def ChangeCurrentColor(bank):
     current_bank_color = colors[bank]
     leds[bank_switch] = current_bank_color
 # end method
+async def ChangeNormalColor(second_layer : bool) :
+    global normal_color
+    await FlashLEDOnSave(bank_switch)
+    if second_layer:
+        normal_color = RGB_BLUE
+    else:
+        normal_color = RGB_RED
 
 def TurnOffAllLEDs():
     """ 
@@ -70,9 +77,10 @@ def ToggleLED(current_switch, color):
     mode. The default LED color in normal mode is red.
 
     Args:
-        current_switch (int): The current switch LED to turn off.
+        current_switch (int): The current switch LED to toggle.
+        color (Tuple): The color to set the LED to.
     """
-    leds[current_switch] == color
+    leds[current_switch] = color
 # end method 
 
 def FlashLEDOnSave(current_switch):

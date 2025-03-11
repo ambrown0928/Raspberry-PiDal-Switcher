@@ -102,7 +102,7 @@ def TogglePedalNormalMode():
     from the current_switch_pressed field, which is global and 
     assigned based on the switch the user presses.
     """
-    switch =  int(current_switch_pressed) - 1;
+    switch =  int(current_switch_pressed) if not second_layer_active else switch = int(second_layer[current_switch_pressed], 16)
     pin = loops[switch] # GPIO pin associated with switch/pedal
     if switch >= max_switch_count:
         return
@@ -127,7 +127,7 @@ def SavePedalsToFile():
     manipulated outside of this method.
     """
     bank_key = f'bank{current_bank}'
-    index = int(current_switch_pressed) - 1
+    index = int(current_switch_pressed)
     if index >= max_switch_count:
         return
     banks[bank_key][index].saved_pins = CopyList(active_pedals)
@@ -152,8 +152,6 @@ def ResetActivePedals() :
     active_pedals = []
 # end method
 
-# iterate through the active pedals array and
-# set the state to the parameter proviced
 def SetActivePedalsState(gpio_state):
     """
     Changes the state of all the pedals in the active_pedals
@@ -169,8 +167,6 @@ def SetActivePedalsState(gpio_state):
         print(f'Pin {pedal} is set to { gpio_state }') # debug
 # end method
 
-# passes is_temp bool to check for a temporary 
-# pedal switch
 def TogglePedalsPerformanceMode(is_temp : bool):
     """
     Toggles a performance loop on or off. If the is_temp parameter
@@ -192,7 +188,7 @@ def TogglePedalsPerformanceMode(is_temp : bool):
     global previous_performance_loop
     
     SetActivePedalsState(GPIO.LOW)
-    index = int(current_switch_pressed) - 1
+    index = int(current_switch_pressed)
     if index >= max_switch_count:
         return -1
     led_controller.ToggleLED(current_performance_loop, led_controller.RGB_OFF)
@@ -221,9 +217,6 @@ def TogglePedalsPerformanceMode(is_temp : bool):
     return index
 # end method
 
-# use to move up or down in banks. when using, pass a 
-# bool to tell the function whether you're moving up
-# or down in the banks.
 def ChangeBank(move_up : bool):
     """
     Change the current bank. 
@@ -247,7 +240,7 @@ def ChangeBank(move_up : bool):
             current_bank = max_bank_count - 2
         else:
             current_bank = current_bank - 2;
-    led_controller.ChangeCurrentColor(current_bank)
+    led_controller.ChangeCurrentBankColor(current_bank)
     print(f'bank{current_bank}') # debug
 
     # if we're in performance mode, we want to
@@ -259,11 +252,28 @@ def ChangeBank(move_up : bool):
         ResetActivePedals()
 # end method
 
+def ResetBank():
+    global current_bank
+    if current_bank == 0 :
+        current_bank = max_bank_count - 1
+    else: 
+        current_bank = current_bank - 1
+
+def ToggleSecondLayer():
+    ResetBank();
+    led_controller.TurnOffAllLEDs()
+    second_layer_active = not second_layer_active
+    led_controller.ChangeNormalColor(second_layer_active)
+# end method 
+
 # stores a reference to the GPIO pins used. whenever we
 # want to toggle a pedal in normal mode, we need to reference 
 # this array. 
-loops = [3, 5, 7, 11, 13, 15, 19, 21];
+loops = [3, 5, 7, 10, 11, 12, 13, 15,
+         16, 19, 21, 22, 23, 24, 26, 27];
 
+second_layer = [8, 9, "A", "B", "C", "D", "E", "F"];
+second_layer_active = False
 # init RPi.GPIO and setup pins
 for loop in loops:
     GPIO.setup(loop, GPIO.OUT)
@@ -273,9 +283,9 @@ for loop in loops:
 pygame.init()
 window = pygame.display.set_mode((800,480))
 
-previous_switch_pressed = 0
+previous_switch_pressed = -1
 previous_performance_loop = -1 # previous performance loop activated
-current_switch_pressed = 0
+current_switch_pressed = -1
 current_performance_loop = -1 # current active performance loop
 
 max_switch_count = 8 # adjust depending on number of switches desired
@@ -308,12 +318,12 @@ while mainloop:
         if event.type == pygame.QUIT: # debug option force quit
             mainloop = False
         # end force quit check
-        if event.type == pygame.KEYDOWN and current_switch_pressed == 0:
+        if event.type == pygame.KEYDOWN and current_switch_pressed == -1:
 
             # get current switch and mark the time it was pressed
             current_switch_pressed = pygame.key.name(event.key)
             pressed_time = time.time()
-            press_release_interval = pressed_time - released_time;
+            press_release_interval = pressed_time - released_time
 
             # if user pressed a switch again in a short time, and the previous switch
             # is equal to the current switch, then the user was trying to save
@@ -326,13 +336,13 @@ while mainloop:
             # correct, current bank.
             if press_release_interval < 0.3 and previous_switch_pressed == current_switch_pressed:
                 if current_switch_pressed == "/":  # toggle performance mode 
-                    current_bank = current_bank - 1 # reduce bank to previous one
+                    ResetBank();
                     performance_mode = not performance_mode
                     ResetActivePedals()
                 elif not performance_mode: # save pedal bank
                     TogglePedalNormalMode() # retoggle pedal associated w/switch
                     SavePedalsToFile()
-                current_switch_pressed = 0
+                current_switch_pressed = -1
                 continue # skip the rest of the code
             # end save pedals check
 
@@ -352,6 +362,9 @@ while mainloop:
 
             if time_difference > 0.5: # switch held for longer than half a second, meaning its a temporary activation
                 if current_switch_pressed == "/": # go down on the banks
+                    if time_difference > 2 : # change current switch layer
+                        ToggleSecondLayer
+                        continue
                     ChangeBank(False)
                 elif performance_mode:
                     current_performance_loop = TogglePedalsPerformanceMode(True)
@@ -361,7 +374,7 @@ while mainloop:
             # end temporary activation check
             
             previous_switch_pressed = current_switch_pressed
-            current_switch_pressed = 0
+            current_switch_pressed = -1
         # end released check
     # end pygame loop
 # end main loop
