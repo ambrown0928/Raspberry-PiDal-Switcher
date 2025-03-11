@@ -8,6 +8,7 @@ import pickle
 import pygame
 import os
 import errno
+import atexit
 
 class Loop:
     """
@@ -102,22 +103,26 @@ def TogglePedalNormalMode():
     from the current_switch_pressed field, which is global and 
     assigned based on the switch the user presses.
     """
+    switch = 0
+    led_index = 0
     if not second_layer_active:
-        switch =  int(current_switch_pressed) 
+        switch =  int(current_switch_pressed)
+        led_index = switch
     else: 
-        switch = int(second_layer[current_switch_pressed], 16)
+        switch = int(second_layer[int(current_switch_pressed)], 16)
+        led_index = int(current_switch_pressed)
     pin = loops[switch] # GPIO pin associated with switch/pedal
-    if switch >= max_switch_count:
+    if switch >= len(loops):
         return
     if pin in active_pedals: # turn pedal off
         GPIO.output(pin, GPIO.LOW)
         active_pedals.remove(pin)
-        led_controller.ToggleLED(switch, led_controller.RGB_OFF)
+        led_controller.ToggleLED(led_index, led_controller.RGB_OFF)
         print(f'Pin {pin} at switch {current_switch_pressed} removed') # debug
     else: # turn pedal on
         GPIO.output(pin, GPIO.HIGH)
         active_pedals.append(pin)
-        led_controller.ToggleLED(switch, led_controller.normal_color)
+        led_controller.ToggleLED(led_index, led_controller.normal_color)
         print(f'Pin {pin} at switch {current_switch_pressed} added') # debug
     print(active_pedals) # debug
 # end method
@@ -214,7 +219,7 @@ def TogglePedalsPerformanceMode(is_temp : bool):
 
     # activate pedals
     SetActivePedalsState(GPIO.HIGH)
-    led_controller.ToggleLEDPerformanceMode(index, led_controller.current_bank_color)
+    led_controller.ToggleLED(index, led_controller.current_bank_color)
     print(active_pedals) # debug
     previous_performance_loop = current_performance_loop
     return index
@@ -261,12 +266,24 @@ def ResetBank():
         current_bank = max_bank_count - 1
     else: 
         current_bank = current_bank - 1
+    led_controller.ChangeCurrentBankColor(current_bank)
 
 def ToggleSecondLayer():
+    global second_layer_active
     ResetBank();
     led_controller.TurnOffAllLEDs()
     second_layer_active = not second_layer_active
     led_controller.ChangeNormalColor(second_layer_active)
+    for i in range(len(loops)):
+        if loops[i] in active_pedals:
+            index = i
+            if i <= 7 and second_layer_active:
+                continue
+            if i > 7:
+                if not second_layer_active:
+                    continue
+                index = i - 8
+            led_controller.ToggleLED(index, led_controller.normal_color)
 # end method 
 
 # stores a reference to the GPIO pins used. whenever we
@@ -275,8 +292,8 @@ def ToggleSecondLayer():
 loops = [3, 5, 7, 10, 11, 12, 13, 15,
          16, 19, 21, 22, 23, 24, 26, 27];
 
-second_layer = [8, 9, "A", "B", "C", "D", "E", "F"];
-second_layer_active = False
+second_layer = ["8", "9", "A", "B", "C", "D", "E", "F"];
+second_layer_active : bool = False
 # init RPi.GPIO and setup pins
 for loop in loops:
     GPIO.setup(loop, GPIO.OUT)
@@ -284,7 +301,9 @@ for loop in loops:
 
 # init pygame
 pygame.init()
-window = pygame.display.set_mode((800,480))
+window = pygame.display.set_mode((100, 100))
+
+atexit.register(led_controller.Shutdown)
 
 previous_switch_pressed = -1
 previous_performance_loop = -1 # previous performance loop activated
@@ -305,6 +324,7 @@ banks = { }
 max_bank_count = 16 # change this to increase the maximum number of banks
 current_bank = 0
 
+led_controller.Startup()
 # init banks
 for x in range(max_bank_count):
     bank_key = f'bank{x}'
@@ -319,6 +339,7 @@ mainloop = True
 while mainloop:
     for event in pygame.event.get(): # pygame loop
         if event.type == pygame.QUIT: # debug option force quit
+            led_controller.Shutdown()
             mainloop = False
         # end force quit check
         if event.type == pygame.KEYDOWN and current_switch_pressed == -1:
@@ -350,6 +371,7 @@ while mainloop:
             # end save pedals check
 
             if current_switch_pressed == "escape":
+                led_controller.Shutdown()
                 mainloop = False # debug option force quit
             elif current_switch_pressed == "/": # move up in bank
                 ChangeBank(True)
@@ -365,10 +387,10 @@ while mainloop:
 
             if time_difference > 0.5: # switch held for longer than half a second, meaning its a temporary activation
                 if current_switch_pressed == "/": # go down on the banks
-                    if time_difference > 2 : # change current switch layer
-                        ToggleSecondLayer
-                        continue
-                    ChangeBank(False)
+                    if time_difference > 2 and not performance_mode: # change current switch layer
+                        ToggleSecondLayer()
+                    else:
+                        ChangeBank(False)
                 elif performance_mode:
                     current_performance_loop = TogglePedalsPerformanceMode(True)
                 else:
@@ -381,6 +403,6 @@ while mainloop:
         # end released check
     # end pygame loop
 # end main loop
-pygame.quit()
 GPIO.cleanup()
 led_controller.Shutdown()
+pygame.quit()

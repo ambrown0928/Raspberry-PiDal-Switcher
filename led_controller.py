@@ -1,6 +1,7 @@
 import time
 import board
 import neopixel
+import atexit
 
 leds = neopixel.NeoPixel(board.D18, 30, brightness=1)
 
@@ -34,9 +35,6 @@ current_bank_color = colors[0]
 normal_color = colors[0] # RGB_RED is the color for normal mode.
 bank_switch = 8 # index of LED for bank switch. change depending on number of switches.
 
-leds.fill(RGB_OFF)
-leds[bank_switch] = current_bank_color
-
 def ChangeCurrentBankColor(bank):
     """ 
     This method is used to change the current
@@ -51,9 +49,9 @@ def ChangeCurrentBankColor(bank):
     current_bank_color = colors[bank]
     leds[bank_switch] = current_bank_color
 # end method
-async def ChangeNormalColor(second_layer : bool) :
+def ChangeNormalColor(second_layer : bool) :
     global normal_color
-    await FlashLEDOnSave(bank_switch)
+    FlashLEDOnSave(bank_switch)
     if second_layer:
         normal_color = RGB_BLUE
     else:
@@ -102,3 +100,9 @@ def FlashLEDOnSave(current_switch):
     # end loop
     leds[current_switch] = saved_color;
 # end method
+def Startup():
+    for i in range(9):
+        leds[i] = RGB_FOREST
+        time.sleep(0.05)
+    time.sleep(0.5)
+    TurnOffAllLEDs()
