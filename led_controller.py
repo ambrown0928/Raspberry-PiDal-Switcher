@@ -14,22 +14,22 @@ RGB_BLUE = (0, 0, 255)
 RGB_ORANGE = (255, 96, 0)
 RGB_PURPLE = (147, 0, 255)
 RGB_CYAN = (0, 255, 255)
-RGB_SALMON = (245, 141, 149)
-RGB_FOREST = (20, 71, 0)
-RGB_NAVY = (12, 12, 59)
+RGB_SALMON = (255, 100, 100)
+RGB_FOREST = (0, 70, 0)
+RGB_NAVY = (0, 0, 59)
 RGB_MAGENTA = (255, 0, 255)
-RGB_BRICK = (130, 0, 0)
-RGB_LEAF = (191, 255, 191)
-RGB_SKY = (191, 254, 255)
-RGB_PINK = (255, 191, 255)
+RGB_BRICK = (220, 20, 60)
+RGB_LEAF = (127, 255, 0)
+RGB_TEAL = (0, 130, 130)
+RGB_BROWN = (129, 59, 9)
 RGB_WHITE = (255, 255, 255)
 
 # array storing all colors in order of how we want
 # them to be displayed as bank colors
 colors = [RGB_RED, RGB_BLUE, RGB_GREEN, RGB_YELLOW,
-          RGB_PURPLE, RGB_LEAF, RGB_ORANGE, RGB_NAVY,
-          RGB_PINK, RGB_FOREST, RGB_SKY, RGB_SALMON,
-          RGB_CYAN, RGB_MAGENTA, RGB_BRICK, RGB_WHITE]
+          RGB_PURPLE, RGB_LEAF, RGB_TEAL, RGB_NAVY,
+          RGB_BROWN, RGB_FOREST,  RGB_MAGENTA, RGB_SALMON,
+          RGB_CYAN, RGB_BRICK, RGB_ORANGE, RGB_WHITE]
 
 current_bank_color = colors[0] 
 normal_color = colors[0] # RGB_RED is the color for normal mode.
@@ -78,7 +78,7 @@ def TurnOffAllLEDs():
 
 def Shutdown():
     for i in range(9):
-        leds[i] = RGB_FOREST
+        leds[i] = RGB_RED
         time.sleep(0.05)
     time.sleep(0.5)
     for i in range(9):
@@ -120,6 +120,10 @@ def FlashLEDOnSave(current_switch):
 def Startup():
     for i in range(9):
         leds[i] = RGB_FOREST
+        time.sleep(0.05)
+    time.sleep(0.5)
+    for i in range(9):
+        leds[i] = RGB_OFF
         time.sleep(0.05)
     time.sleep(0.5)
     TurnOffAllLEDs()

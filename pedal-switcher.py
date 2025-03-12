@@ -387,12 +387,12 @@ while mainloop:
             released_time = time.time();
             time_difference = released_time - pressed_time
 
-            if time_difference > 0.25: # switch held for longer than half a second, meaning its a temporary activation
+            if time_difference >= 0.25: # switch held for longer than half a second, meaning its a temporary activation
                 if current_switch_pressed == "/": # go down on the banks
                     if time_difference >= 5:
                         led_controller.Shutdown()
                         os.system("sudo shutdown -h now");
-                    elif time_difference >= 1 and not performance_mode: # change current switch layer
+                    elif time_difference > 1 and not performance_mode: # change current switch layer
                         ToggleSecondLayer()
                     else:
                         ChangeBank(False)

@@ -1,4 +1,4 @@
 [Desktop Entry]
 Type= Application
-Name= Pedal Switcher v0.1
-Exec= sudo /usr/bin/python3 /home/pi/pedal-switcher.py
+Name= Pedal Switcher v0.2
+Exec= sudo /usr/bin/python3 /home/a/pedal-switcher.py
