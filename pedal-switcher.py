@@ -117,12 +117,12 @@ def TogglePedalNormalMode():
     if pin in active_pedals: # turn pedal off
         GPIO.output(pin, GPIO.LOW)
         active_pedals.remove(pin)
-        led_controller.ToggleLED(led_index, led_controller.RGB_OFF)
+        led_controller.SetLED(led_index, led_controller.RGB_OFF)
         print(f'Pin {pin} at switch {current_switch_pressed} removed') # debug
     else: # turn pedal on
         GPIO.output(pin, GPIO.HIGH)
         active_pedals.append(pin)
-        led_controller.ToggleLED(led_index, led_controller.normal_color)
+        led_controller.SetLED(led_index, led_controller.normal_color)
         print(f'Pin {pin} at switch {current_switch_pressed} added') # debug
     print(active_pedals) # debug
 # end method
@@ -139,7 +139,7 @@ def SavePedalsToFile():
     if index >= max_switch_count:
         return
     banks[bank_key][index].saved_pins = CopyList(active_pedals)
-    led_controller.FlashLEDOnSave(index);
+    led_controller.FlashLED(index)
     # save each pedal to its respective file
     for pedal in banks[bank_key]:
         filename = f'/{bank_key}/loop{pedal.switch}.pkl'
@@ -199,27 +199,27 @@ def TogglePedalsPerformanceMode(is_temp : bool):
     index = int(current_switch_pressed)
     if index >= max_switch_count:
         return -1
-    led_controller.ToggleLED(current_performance_loop, led_controller.RGB_OFF)
+    led_controller.SetLED(current_performance_loop, led_controller.RGB_OFF)
 
     if current_performance_loop == index : # switch pressed was the last one pressed
         if is_temp and previous_performance_loop != -1: # switching between 2 loops
-            active_pedals = CopyList(previous_pedals);
+            active_pedals = CopyList(previous_pedals)
             SetActivePedalsState(GPIO.HIGH)
-            led_controller.ToggleLED(previous_performance_loop, led_controller.current_bank_color)
+            led_controller.SetLED(previous_performance_loop, led_controller.current_bank_color)
             return previous_performance_loop
         # end temporary check
         active_pedals = []
         return -1
     # end off check
 
-    previous_pedals = CopyList(active_pedals);
+    previous_pedals = CopyList(active_pedals)
     # copy banked pedals into the active pedals
     bank_key = f'bank{current_bank}'
     active_pedals = CopyList(banks[bank_key][index].saved_pins)
 
     # activate pedals
     SetActivePedalsState(GPIO.HIGH)
-    led_controller.ToggleLED(index, led_controller.current_bank_color)
+    led_controller.SetLED(index, led_controller.current_bank_color)
     print(active_pedals) # debug
     previous_performance_loop = current_performance_loop
     return index
@@ -232,7 +232,7 @@ def ChangeBank(move_up : bool):
     Args:
         move_up (bool): lets the function know whether we're moving up or down in the bank.
     """
-    global current_bank;
+    global current_bank
     if move_up:
         if current_bank == max_bank_count - 1: # loop
             current_bank = 0
@@ -247,7 +247,7 @@ def ChangeBank(move_up : bool):
         elif current_bank == 0:
             current_bank = max_bank_count - 2
         else:
-            current_bank = current_bank - 2;
+            current_bank = current_bank - 2
     led_controller.ChangeCurrentBankColor(current_bank)
     print(f'bank{current_bank}') # debug
 
@@ -270,7 +270,7 @@ def ResetBank():
 
 def ToggleSecondLayer():
     global second_layer_active
-    ResetBank();
+    ResetBank()
     led_controller.TurnOffAllLEDs()
     second_layer_active = not second_layer_active
     led_controller.ChangeNormalColor(second_layer_active)
@@ -283,16 +283,16 @@ def ToggleSecondLayer():
                 if not second_layer_active:
                     continue
                 index = i - 8
-            led_controller.ToggleLED(index, led_controller.normal_color)
+            led_controller.SetLED(index, led_controller.normal_color)
 # end method 
 
 # stores a reference to the GPIO pins used. whenever we
 # want to toggle a pedal in normal mode, we need to reference 
 # this array. 
 loops = [3, 5, 7, 10, 11, 12, 13, 15,
-         16, 19, 21, 22, 23, 24, 26, 27];
+         16, 19, 21, 22, 23, 24, 26, 27]
 
-second_layer = ["8", "9", "A", "B", "C", "D", "E", "F"];
+second_layer = ["8", "9", "A", "B", "C", "D", "E", "F"]
 second_layer_active : bool = False
 # init RPi.GPIO and setup pins
 for loop in loops:
@@ -362,9 +362,10 @@ while mainloop:
             # correct, current bank.
             if press_release_interval <= 0.2 and previous_switch_pressed == current_switch_pressed:
                 if current_switch_pressed == "/":  # toggle performance mode 
-                    ResetBank();
-                    performance_mode = not performance_mode
+                    ResetBank()
                     ResetActivePedals()
+                    performance_mode = not performance_mode
+                    led_controller.TogglePerformanceMode(performance_mode);
                 elif not performance_mode: # save pedal bank
                     TogglePedalNormalMode() # retoggle pedal associated w/switch
                     SavePedalsToFile()
@@ -384,17 +385,18 @@ while mainloop:
             # end key check
         # end pressed check
         if event.type == pygame.KEYUP and current_switch_pressed == pygame.key.name(event.key):
-            released_time = time.time();
+            released_time = time.time()
             time_difference = released_time - pressed_time
 
             if time_difference >= 0.25: # switch held for longer than half a second, meaning its a temporary activation
-                if current_switch_pressed == "/": # go down on the banks
-                    if time_difference >= 5:
+                if current_switch_pressed == "/":
+                    if time_difference >= 5: # shutdown system
                         led_controller.Shutdown()
-                        os.system("sudo shutdown -h now");
-                    elif time_difference > 1 and not performance_mode: # change current switch layer
+                        mainloop = False
+                        os.system("sudo shutdown -h now")
+                    elif time_difference >= 1 and not performance_mode: # change current switch layer
                         ToggleSecondLayer()
-                    else:
+                    else: # go down on banks
                         ChangeBank(False)
                 elif performance_mode:
                     current_performance_loop = TogglePedalsPerformanceMode(True)
