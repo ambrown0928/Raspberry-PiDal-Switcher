@@ -109,18 +109,6 @@ def FlashLED(current_switch):
     leds[current_switch] = saved_color;
 # end method
 
-def TogglePerformanceMode(performance_mode):
-    """
-    This method is called when toggling performance mode.
-    Args:
-        performance_mode (bool): whether performance mode is on or off.
-    """
-    color = normal_color
-    if performance_mode:
-        color = current_bank_color
-    Wave(color, 0.25)
-# end method
-
 def Startup():
     """
     This method is called on startup.
@@ -139,10 +127,10 @@ def Shutdown():
 def Wave(color, wait_time):
     for i in range(9):
         leds[i] = color
-        wait_time.sleep(0.05)
+        time.sleep(0.025)
     time.sleep(wait_time)
     for i in range(9):
         leds[i] = RGB_OFF
-        wait_time.sleep(0.05)
+        time.sleep(0.025)
     time.sleep(wait_time)
 # end method
