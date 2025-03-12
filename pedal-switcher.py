@@ -360,7 +360,7 @@ while mainloop:
             # whatever switch was pressed, otherwise the pedal will run into
             # weird bugs with if the pedal is currently activated or the bank is the 
             # correct, current bank.
-            if press_release_interval < 0.3 and previous_switch_pressed == current_switch_pressed:
+            if press_release_interval <= 0.2 and previous_switch_pressed == current_switch_pressed:
                 if current_switch_pressed == "/":  # toggle performance mode 
                     ResetBank();
                     performance_mode = not performance_mode
@@ -387,12 +387,12 @@ while mainloop:
             released_time = time.time();
             time_difference = released_time - pressed_time
 
-            if time_difference > 0.5: # switch held for longer than half a second, meaning its a temporary activation
+            if time_difference > 0.25: # switch held for longer than half a second, meaning its a temporary activation
                 if current_switch_pressed == "/": # go down on the banks
-                    if time_difference > 10:
+                    if time_difference >= 5:
                         led_controller.Shutdown()
                         os.system("sudo shutdown -h now");
-                    elif time_difference > 2 and not performance_mode: # change current switch layer
+                    elif time_difference >= 1 and not performance_mode: # change current switch layer
                         ToggleSecondLayer()
                     else:
                         ChangeBank(False)
