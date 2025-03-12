@@ -25,14 +25,15 @@ RGB_BROWN = (129, 59, 9)
 RGB_WHITE = (255, 255, 255)
 
 # array storing all colors in order of how we want
-# them to be displayed as bank colors
+# them to be displayed as bank colors. Change depending
+# on max_bank_count in 
 colors = [RGB_RED, RGB_BLUE, RGB_GREEN, RGB_YELLOW,
           RGB_PURPLE, RGB_LEAF, RGB_TEAL, RGB_NAVY,
           RGB_BROWN, RGB_FOREST,  RGB_MAGENTA, RGB_SALMON,
           RGB_CYAN, RGB_BRICK, RGB_ORANGE, RGB_WHITE]
 
 current_bank_color = colors[0] 
-normal_color = colors[0] # RGB_RED is the color for normal mode.
+normal_color = RGB_FOREST # RGB_FOREST is the default color for normal mode.
 bank_switch = 8 # index of LED for bank switch. change depending on number of switches.
 
 def TurnOffAllLEDs():
@@ -86,7 +87,7 @@ def ChangeNormalColor(second_layer : bool) :
     if second_layer:
         normal_color = RGB_BLUE
     else:
-        normal_color = RGB_RED
+        normal_color = RGB_FOREST
 # end method 
 
 def FlashLED(current_switch):
@@ -107,6 +108,18 @@ def FlashLED(current_switch):
         time.sleep(0.1)
     # end loop
     leds[current_switch] = saved_color;
+# end method
+
+def TogglePerformanceMode(performance_mode):
+    """
+    This method is called when toggling performance mode.
+    Args:
+        performance_mode (bool): whether performance mode is on or off.
+    """
+    color = normal_color
+    if performance_mode:
+        color = current_bank_color
+    Wave(color, 0.25)
 # end method
 
 def Startup():

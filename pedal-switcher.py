@@ -48,7 +48,7 @@ def ReadFile(filename) :
     """
     This method reads an object at the given filename
     and returns the data stored there. We use Python's
-    Pickle library when saving.
+    Pickle library when loading.
 
     Args:
         filename (string): The directory and filename to load from.
@@ -103,17 +103,17 @@ def TogglePedalNormalMode():
     from the current_switch_pressed field, which is global and 
     assigned based on the switch the user presses.
     """
-    switch = 0
-    led_index = 0
-    if not second_layer_active:
-        switch =  int(current_switch_pressed)
-        led_index = switch
-    else: 
-        switch = int(second_layer[int(current_switch_pressed)], 16)
-        led_index = int(current_switch_pressed)
-    pin = loops[switch] # GPIO pin associated with switch/pedal
+    switch = int(current_switch_pressed)
+    led_index = switch
+    
+    if second_layer_active: # set switch to second layer value
+        switch = switch + max_switch_count
+
     if switch >= len(loops):
         return
+    
+    pin = loops[switch] # GPIO pin associated with switch/pedal
+
     if pin in active_pedals: # turn pedal off
         GPIO.output(pin, GPIO.LOW)
         active_pedals.remove(pin)
@@ -156,7 +156,6 @@ def ResetActivePedals() :
     """
     global active_pedals
     SetActivePedalsState(GPIO.LOW)
-    led_controller.TurnOffAllLEDs()
     active_pedals = []
 # end method
 
@@ -195,10 +194,13 @@ def TogglePedalsPerformanceMode(is_temp : bool):
     global previous_pedals
     global previous_performance_loop
     
-    SetActivePedalsState(GPIO.LOW)
+    bank_key = f'bank{current_bank}'
     index = int(current_switch_pressed)
+
+    SetActivePedalsState(GPIO.LOW)
     if index >= max_switch_count:
         return -1
+    
     led_controller.SetLED(current_performance_loop, led_controller.RGB_OFF)
 
     if current_performance_loop == index : # switch pressed was the last one pressed
@@ -213,16 +215,31 @@ def TogglePedalsPerformanceMode(is_temp : bool):
     # end off check
 
     previous_pedals = CopyList(active_pedals)
-    # copy banked pedals into the active pedals
-    bank_key = f'bank{current_bank}'
-    active_pedals = CopyList(banks[bank_key][index].saved_pins)
+    active_pedals = CopyList(banks[bank_key][index].saved_pins) # copy banked pedals into the active pedals
 
     # activate pedals
     SetActivePedalsState(GPIO.HIGH)
     led_controller.SetLED(index, led_controller.current_bank_color)
-    print(active_pedals) # debug
     previous_performance_loop = current_performance_loop
+
+    print(active_pedals) # debug
     return index
+# end method
+
+def ResetBank():
+    """
+    Sets the current bank back to the previous bank. This 
+    method is mostly used when we toggle performance mode or
+    switch between layers, as we want to go back to the previous 
+    setting. 
+    """
+    global current_bank
+    if current_bank == 0 :
+        current_bank = max_bank_count - 1
+    else: 
+        current_bank = current_bank - 1
+    led_controller.ChangeCurrentBankColor(current_bank)
+    led_controller.TurnOffAllLEDs()
 # end method
 
 def ChangeBank(move_up : bool):
@@ -260,28 +277,24 @@ def ChangeBank(move_up : bool):
         ResetActivePedals()
 # end method
 
-def ResetBank():
-    global current_bank
-    if current_bank == 0 :
-        current_bank = max_bank_count - 1
-    else: 
-        current_bank = current_bank - 1
-    led_controller.ChangeCurrentBankColor(current_bank)
-
-def ToggleSecondLayer():
+def SwitchLayers():
+    """
+    Switches between layer one and layer two in normal mode. Each
+    layer contains different references to relays, and allows for
+    1 switchboard to control multiple 
+    """
     global second_layer_active
     ResetBank()
-    led_controller.TurnOffAllLEDs()
     second_layer_active = not second_layer_active
     led_controller.ChangeNormalColor(second_layer_active)
-    for i in range(len(loops)):
+    for i in range(len(loops)): # reactivate leds for active pedals
         if loops[i] in active_pedals:
             index = i
-            if i <= 7 and second_layer_active:
+            if i <= max_switch_count - 1 and second_layer_active:
                 continue
-            if i > 7:
+            if i > max_switch_count - 1:
                 if not second_layer_active:
-                    continue
+                    break
                 index = i - 8
             led_controller.SetLED(index, led_controller.normal_color)
 # end method 
@@ -289,11 +302,9 @@ def ToggleSecondLayer():
 # stores a reference to the GPIO pins used. whenever we
 # want to toggle a pedal in normal mode, we need to reference 
 # this array. 
-loops = [3, 5, 7, 10, 11, 12, 13, 15,
+loops = [3, 5, 7, 8, 10, 11, 13, 15,
          16, 19, 21, 22, 23, 24, 26, 27]
 
-second_layer = ["8", "9", "A", "B", "C", "D", "E", "F"]
-second_layer_active : bool = False
 # init RPi.GPIO and setup pins
 for loop in loops:
     GPIO.setup(loop, GPIO.OUT)
@@ -314,6 +325,9 @@ current_performance_loop = -1 # current active performance loop
 
 max_switch_count = 8 # adjust depending on number of switches desired
 
+# set up second layer, which allows for a second set of relays.
+second_layer_active : bool = False
+
 pressed_time = 0 
 released_time = 0 
 press_release_interval = 0 # time between release and press
@@ -332,11 +346,10 @@ for x in range(max_bank_count):
     bank_key = f'bank{x}'
     banked_pedals = []
     for y in range(max_switch_count):
-        banked_pedals.append(InitializePedalBank(x, y + 1))
+        banked_pedals.append(InitializePedalBank(x, y+1))
     # end loop
     banks[bank_key] = banked_pedals
 # end loop
-
 mainloop = True
 while mainloop:
     for event in pygame.event.get(): # pygame loop
@@ -395,7 +408,7 @@ while mainloop:
                         mainloop = False
                         os.system("sudo shutdown -h now")
                     elif time_difference >= 1 and not performance_mode: # change current switch layer
-                        ToggleSecondLayer()
+                        SwitchLayers()
                     else: # go down on banks
                         ChangeBank(False)
                 elif performance_mode:
