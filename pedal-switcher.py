@@ -303,6 +303,8 @@ for loop in loops:
 pygame.init()
 window = pygame.display.set_mode((100, 100))
 
+# system functions
+os.system("wmctrl -a pygame") 
 atexit.register(led_controller.Shutdown)
 
 previous_switch_pressed = -1
@@ -387,7 +389,10 @@ while mainloop:
 
             if time_difference > 0.5: # switch held for longer than half a second, meaning its a temporary activation
                 if current_switch_pressed == "/": # go down on the banks
-                    if time_difference > 2 and not performance_mode: # change current switch layer
+                    if time_difference > 10:
+                        led_controller.Shutdown()
+                        os.system("sudo shutdown -h now");
+                    elif time_difference > 2 and not performance_mode: # change current switch layer
                         ToggleSecondLayer()
                     else:
                         ChangeBank(False)

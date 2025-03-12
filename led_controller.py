@@ -49,13 +49,23 @@ def ChangeCurrentBankColor(bank):
     current_bank_color = colors[bank]
     leds[bank_switch] = current_bank_color
 # end method
+
 def ChangeNormalColor(second_layer : bool) :
+    """
+    This method is used to change the current normal
+    color. It switches between blue and red depending 
+    on what layer the user is on.
+
+    Args:
+        second_layer (bool): Whether the user is on layer one or layer two.
+    """
     global normal_color
     FlashLEDOnSave(bank_switch)
     if second_layer:
         normal_color = RGB_BLUE
     else:
         normal_color = RGB_RED
+# end method 
 
 def TurnOffAllLEDs():
     """ 
@@ -67,7 +77,13 @@ def TurnOffAllLEDs():
     leds[bank_switch] = current_bank_color
 
 def Shutdown():
-    leds.fill(RGB_OFF)
+    for i in range(9):
+        leds[i] = RGB_FOREST
+        time.sleep(0.05)
+    time.sleep(0.5)
+    for i in range(9):
+        leds[i] = RGB_OFF
+        time.sleep(0.05)
 
 def ToggleLED(current_switch, color):
     """
@@ -100,6 +116,7 @@ def FlashLEDOnSave(current_switch):
     # end loop
     leds[current_switch] = saved_color;
 # end method
+
 def Startup():
     for i in range(9):
         leds[i] = RGB_FOREST
