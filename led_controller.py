@@ -35,6 +35,28 @@ current_bank_color = colors[0]
 normal_color = colors[0] # RGB_RED is the color for normal mode.
 bank_switch = 8 # index of LED for bank switch. change depending on number of switches.
 
+def TurnOffAllLEDs():
+    """ 
+    This method is used to turn off all the LEDs
+    except for the bank switch, which is set to the
+    current bank color.
+    """
+    leds.fill(RGB_OFF)
+    leds[bank_switch] = current_bank_color
+# end method
+
+def SetLED(current_switch, color):
+    """
+    This method is used to change the color a specific LED
+    currently has.
+
+    Args:
+        current_switch (int): The current LED index to change.
+        color (Tuple): The color to set the LED to.
+    """
+    leds[current_switch] = color
+# end method 
+
 def ChangeCurrentBankColor(bank):
     """ 
     This method is used to change the current
@@ -60,44 +82,14 @@ def ChangeNormalColor(second_layer : bool) :
         second_layer (bool): Whether the user is on layer one or layer two.
     """
     global normal_color
-    FlashLEDOnSave(bank_switch)
+    FlashLED(bank_switch)
     if second_layer:
         normal_color = RGB_BLUE
     else:
         normal_color = RGB_RED
 # end method 
 
-def TurnOffAllLEDs():
-    """ 
-    This method is used to turn off all the LEDs
-    except for the bank switch, which is set to the
-    current bank color.
-    """
-    leds.fill(RGB_OFF)
-    leds[bank_switch] = current_bank_color
-
-def Shutdown():
-    for i in range(9):
-        leds[i] = RGB_RED
-        time.sleep(0.05)
-    time.sleep(0.5)
-    for i in range(9):
-        leds[i] = RGB_OFF
-        time.sleep(0.05)
-
-def ToggleLED(current_switch, color):
-    """
-    This method is used to toggle an LED in normal
-    mode. The default LED color in normal mode is red.
-
-    Args:
-        current_switch (int): The current switch LED to toggle.
-        color (Tuple): The color to set the LED to.
-    """
-    leds[current_switch] = color
-# end method 
-
-def FlashLEDOnSave(current_switch):
+def FlashLED(current_switch):
     """
     This method is called when a performance loop is saved. 
     When the loop is saved, we want to flash the LED with the 
@@ -117,13 +109,41 @@ def FlashLEDOnSave(current_switch):
     leds[current_switch] = saved_color;
 # end method
 
+def TogglePerformanceMode(performance_mode):
+    """
+    This method is called when toggling performance mode.
+    Args:
+        performance_mode (bool): whether performance mode is on or off.
+    """
+    color = normal_color
+    if performance_mode:
+        color = current_bank_color
+    Wave(color, 0.25)
+    TurnOffAllLEDs()
+# end method
+
 def Startup():
+    """
+    This method is called on startup.
+    """
+    Wave(RGB_FOREST, 0.5)
+    TurnOffAllLEDs()
+# end method
+
+def Shutdown():
+    """
+    This method is called on shutdown.
+    """
+    Wave(RGB_RED, 0.5)
+# end method
+
+def Wave(color, wait_time):
     for i in range(9):
-        leds[i] = RGB_FOREST
-        time.sleep(0.05)
-    time.sleep(0.5)
+        leds[i] = color
+        time.sleep(0.025)
+    time.sleep(wait_time)
     for i in range(9):
         leds[i] = RGB_OFF
-        time.sleep(0.05)
-    time.sleep(0.5)
-    TurnOffAllLEDs()
+        time.sleep(0.025)
+    time.sleep(wait_time)
+# end method
