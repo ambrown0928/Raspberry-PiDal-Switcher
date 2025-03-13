@@ -292,7 +292,7 @@ def SwitchLayers():
             index = i
             if i <= max_switch_count - 1 and second_layer_active:
                 continue
-            if i > max_switch_count - 1:
+            if i > max_switch_count - 14:
                 if not second_layer_active:
                     break
                 index = i - 8
@@ -315,7 +315,8 @@ pygame.init()
 window = pygame.display.set_mode((100, 100))
 
 # system functions
-os.system("wmctrl -a pygame") 
+time.sleep(0.5) # fixes a bug with pi startup
+os.system("sudo wmctrl -a pygame") 
 atexit.register(led_controller.Shutdown)
 
 previous_switch_pressed = -1
