@@ -302,8 +302,8 @@ def SwitchLayers():
 # stores a reference to the GPIO pins used. whenever we
 # want to toggle a pedal in normal mode, we need to reference 
 # this array. 
-loops = [3, 5, 7, 8, 10, 11, 13, 15,
-         16, 19, 21, 22, 23, 24, 26, 27]
+loops = [2, 3, 4, 14, 15, 17, 27, 22,
+         23, 24, 10, 9, 25, 11, 8, 7]
 
 # init RPi.GPIO and setup pins
 for loop in loops:
